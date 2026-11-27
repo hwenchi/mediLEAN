@@ -9,6 +9,7 @@ namespace MediLean
 inductive Symptom
   | chestPain | armPain | fever | stiffNeck | headache | cough | soreThroat | breathless
   | confusion   -- new, acute confusion or drowsiness
+  | chestWallTender   -- chest pain reproduced by pressing on the chest wall
   deriving DecidableEq, Repr
 
 inductive Condition

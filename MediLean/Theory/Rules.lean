@@ -84,6 +84,11 @@ theorem noHighFever_of_noFever (hf : M.RuledOut (M.has .fever) w) :
     M.Known (fun v => M.tempTenths v < 400) w := fun v hv =>
   Nat.lt_of_not_le fun h => hf v hv (M.fever_of_temp v (Nat.le_trans (by decide) h))
 
+/-- No cough rules out a cough of 3 weeks or more. -/
+theorem noPersistentCough_of_noCough (hc : M.RuledOut (M.has .cough) w) :
+    M.Known (fun v => M.coughDays v < 21) w := fun v hv =>
+  Nat.lt_of_not_le fun h => hc v hv (M.cough_of_days v (Nat.le_trans (by decide) h))
+
 /-- Knowing the patient is at least `a` months old means knowing they are at
     least `b` months old, for any `b ≤ a`. -/
 theorem known_age_mono {a b : Nat} (hab : b ≤ a) (h : M.Known (fun v => a ≤ M.ageMonths v) w) :

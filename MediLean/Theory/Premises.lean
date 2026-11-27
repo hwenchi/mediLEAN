@@ -33,11 +33,14 @@ structure TriageModel extends AdvisoryFrame where
                                   -- (385 = 38.5 °C; 0 = not measured)
   diabetic   : W → Prop           -- the patient has diabetes
   female     : W → Prop           -- the patient is female
+  coughDays  : W → Nat            -- how many days the cough has lasted (0 = no cough)
 
   -- ── Measurements ────────────────────────────────────────────────────────
 
   /-- A measured temperature of 38.0 °C or more is a fever. -/
   fever_of_temp : ∀ w, 380 ≤ tempTenths w → has .fever w
+  /-- A cough that has lasted a day or more is a cough. -/
+  cough_of_days : ∀ w, 1 ≤ coughDays w → has .cough w
 
   -- ── Red flags: symptom patterns that make a condition possible ──────────
 
@@ -94,15 +97,23 @@ structure TriageModel extends AdvisoryFrame where
   caution_seriousInfection : ∀ w, Diamond compat (cond .seriousInfection) w → Box ideal (SeeksAtLeast seeks .emergency) w
   /-- A temperature of 40.0 °C or more needs at least urgent care, whatever the cause. -/
   caution_highFever : ∀ w, 400 ≤ tempTenths w → Box ideal (SeeksAtLeast seeks .urgentCare) w
+  /-- A cough lasting 3 weeks or more needs a doctor's assessment (causes
+      include asthma, reflux, TB and cancer), whatever else is present. -/
+  caution_persistentCough : ∀ w, 21 ≤ coughDays w → Box ideal (SeeksAtLeast seeks .seeDoctor) w
 
   -- ── Proportionality: lower care is fine once danger is ruled out ────────
   -- Every caution premise above must be blocked here, or the two would
   -- contradict each other for some patient, leaving that patient with no
   -- model and every claim about them vacuously true.
 
+  /-- With cardiac, meningitis, pneumonia and serious infection ruled out, no
+      reading of 40.0 °C or more possible, and no cough of 3 weeks or more
+      possible, self-care is permitted. -/
+  permit_selfCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Box compat (fun v => coughDays v < 21) w → Diamond ideal (seeks .selfCare) w
   /-- With cardiac, meningitis, pneumonia and serious infection ruled out, and
-      no reading of 40.0 °C or more possible, self-care is permitted. -/
-  permit_selfCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Diamond ideal (seeks .selfCare) w
+      no reading of 40.0 °C or more possible, seeing a doctor is permitted
+      (a persistent cough is fine at this level). -/
+  permit_seeDoctor : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Diamond ideal (seeks .seeDoctor) w
   /-- With cardiac, meningitis and serious infection ruled out, urgent care is permitted. -/
   permit_urgentCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .seriousInfection) w → Diamond ideal (seeks .urgentCare) w
 

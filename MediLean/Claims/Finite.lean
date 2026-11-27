@@ -54,10 +54,11 @@ instance {W : Type} [Enum W] {R : W → W → Prop} [∀ a b, Decidable (R a b)]
     `decide`, so a model that breaks any premise fails to build. -/
 macro "finite_model%" W:term:max compat:term:max later:term:max ideal:term:max
     has:term:max cond:term:max seeks:term:max age:term:max temp:term:max
-    diab:term:max fem:term:max : term =>
+    diab:term:max fem:term:max cdays:term:max : term =>
   `(({ W := $W, compat := $compat, later := $later, ideal := $ideal,
        has := $has, cond := $cond, seeks := $seeks,
        ageMonths := $age, tempTenths := $temp, diabetic := $diab, female := $fem,
+       coughDays := $cdays, cough_of_days := by decide,
        fever_of_temp := by decide,
        compat_refl := by decide, compat_trans := by decide,
        later_refl := by decide, later_trans := by decide,
@@ -71,7 +72,8 @@ macro "finite_model%" W:term:max compat:term:max later:term:max ideal:term:max
        pneumonia_needs := by decide, viral_needs := by decide,
        caution_cardiac := by decide, caution_meningitis := by decide,
        caution_pneumonia := by decide, caution_seriousInfection := by decide,
-       caution_highFever := by decide,
+       caution_highFever := by decide, caution_persistentCough := by decide,
+       permit_seeDoctor := by decide,
        permit_selfCare := by decide, permit_urgentCare := by decide,
        one_pathway := by decide } : TriageModel))
 
@@ -86,7 +88,16 @@ macro "patient%" age:term:max temp:term:max diab:term:max fem:term:max
       (fun _ b => $need ≤ Urgency.rank b.2)
       (fun s _ => s ∈ ($S : List Symptom)) (fun c _ => c ∈ ($C : List Condition))
       (fun u w => w.2 = u) (fun _ => $age) (fun _ => $temp)
-      (fun _ => $diab) (fun _ => $fem))
+      (fun _ => $diab) (fun _ => $fem) (fun _ => 0))
+
+/-- A 30-year-old man without diabetes whose cough has lasted `days` days. -/
+macro "coughFor%" days:term:max S:term:max C:term:max need:term:max : term =>
+  `(finite_model% (Unit × Urgency)
+      (fun _ _ => True) (fun _ _ => True)
+      (fun _ b => $need ≤ Urgency.rank b.2)
+      (fun s _ => s ∈ ($S : List Symptom)) (fun c _ => c ∈ ($C : List Condition))
+      (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
+      (fun _ => False) (fun _ => False) (fun _ => $days))
 
 /-- A man without diabetes, of the given age and temperature reading. -/
 macro "situationAt%" age:term:max temp:term:max S:term:max C:term:max need:term:max : term =>

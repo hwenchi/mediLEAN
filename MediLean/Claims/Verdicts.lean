@@ -37,8 +37,8 @@ def c4_cardiac_not_ruled_out : CertifiedClaim where
   proof M w h := possible_not_ruledOut (M.redflag_cardiac w (known_T h.1) (known_T h.2))
 
 /-- C6. Patient aged 1 to 64: no chest pain, arm pain, stiff neck, headache,
-    confusion, fever or breathlessness ⇒ self-care is permitted.
-    (A cough-and-sore-throat cold.) The age bounds come from steps 8 and 9;
+    confusion, fever or breathlessness, and any cough under 3 weeks ⇒
+    self-care is permitted. (A cough-and-sore-throat cold.) The age bounds come from steps 8 and 9;
     confusion and breathlessness from step 10 (meningitis can show as
     confusion; a cardiac event can be breathlessness alone in women and
     diabetics). Older adults: see C6b. Low-risk shortcut: see C6c.
@@ -46,15 +46,19 @@ def c4_cardiac_not_ruled_out : CertifiedClaim where
 def c6_selfcare : CertifiedClaim where
   hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
                M.Known (fun v => M.ageMonths v < 780) w ∧
+               M.Known (fun v => M.coughDays v < 21) w ∧
                M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
                               .fever, .breathless] w
   concl M w := M.Permitted (M.seeks .selfCare) w
-  proof M w h := M.permit_selfCare w
-    (ruledOut_cardiac_noBreath (h.2.2 _ (by decide)) (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_meningitis h.1 (h.2.2 _ (by decide)) (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_pneumonia_noFever h.2.1 (h.2.2 _ (by decide)))
-    (ruledOut_seriousInfection_noFever (h.2.2 _ (by decide)))
-    (noHighFever_of_noFever (h.2.2 _ (by decide)))
+  proof M w h :=
+    have ⟨h12, hy, hcd, hr⟩ := h
+    M.permit_selfCare w
+      (ruledOut_cardiac_noBreath (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_pneumonia_noFever hy (hr _ (by decide)))
+      (ruledOut_seriousInfection_noFever (hr _ (by decide)))
+      (noHighFever_of_noFever (hr _ (by decide)))
+      hcd
 
 /-- C6c. Low-risk shortcut: for a man aged 1 to 64 without diabetes, the
     breathlessness question can be skipped. Chest and arm pain are then
@@ -64,16 +68,18 @@ def c6c_selfcare_lowRisk : CertifiedClaim where
   hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
                M.Known (fun v => M.ageMonths v < 780) w ∧
                M.Known (fun v => ¬ M.diabetic v) w ∧ M.Known (fun v => ¬ M.female v) w ∧
+               M.Known (fun v => M.coughDays v < 21) w ∧
                M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w
   concl M w := M.Permitted (M.seeks .selfCare) w
   proof M w h :=
-    have ⟨h12, hy, hnd, hm, hr⟩ := h
+    have ⟨h12, hy, hnd, hm, hcd, hr⟩ := h
     M.permit_selfCare w
       (ruledOut_cardiac_lowRisk hy hnd hm (hr _ (by decide)) (hr _ (by decide)))
       (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
       (ruledOut_pneumonia_noFever hy (hr _ (by decide)))
       (ruledOut_seriousInfection_noFever (hr _ (by decide)))
       (noHighFever_of_noFever (hr _ (by decide)))
+      hcd
 
 /-- C6b. A fever is fine too, if cough, breathlessness and confusion are
     ruled out (pneumonia is then excluded the *other* way) and no reading of
@@ -92,6 +98,7 @@ def c6b_selfcare_fever : CertifiedClaim where
       (ruledOut_pneumonia_noCough (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
       (ruledOut_seriousInfection_age (known_age_mono (by decide) h12))
       ht
+      (noPersistentCough_of_noCough (hr _ (by decide)))
 
 /-- C8. Chest pain + arm pain ⇒ self-care is *forbidden*.
     Uses: C1's premises plus one_pathway. -/
@@ -226,5 +233,42 @@ def c27_fever_confusion : CertifiedClaim where
   concl M w := M.Obligatory (M.seeks .emergency) w
   proof M w h := emergency_of_atLeast (M.caution_meningitis w
     (M.redflag_meningitis_confusion w (known_T h.1) (known_T h.2)))
+
+/-- C31. "See a doctor", finally used. Patient aged 1 to 64 with a cough of
+    3 weeks or more and none of C6's red flags ⇒ seeing a doctor is
+    obligatory (at least), permitted (no urgent care or ER needed), and
+    self-care is forbidden. Tested at exactly 21 days.
+    Uses: caution_persistentCough, the *_needs premises, permit_seeDoctor. -/
+def c31_persistent_cough : CertifiedClaim where
+  hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
+               M.Known (fun v => M.ageMonths v < 780) w ∧
+               M.Known (fun v => 21 ≤ M.coughDays v) w ∧
+               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                              .fever, .breathless] w
+  concl M w := M.Obligatory (M.SeeksAtLeast .seeDoctor) w ∧
+               M.Permitted (M.seeks .seeDoctor) w ∧
+               M.Forbidden (M.seeks .selfCare) w
+  proof M w h :=
+    have ⟨h12, hy, hcd, hr⟩ := h
+    have ho := M.caution_persistentCough w (known_T hcd)
+    ⟨ho,
+     M.permit_seeDoctor w
+       (ruledOut_cardiac_noBreath (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+       (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+       (ruledOut_pneumonia_noFever hy (hr _ (by decide)))
+       (ruledOut_seriousInfection_noFever (hr _ (by decide)))
+       (noHighFever_of_noFever (hr _ (by decide))),
+     forbidden_below (by decide) ho⟩
+
+/-- C32. Safety-netting with a duration: "self-care is fine for this cough
+    now; if it reaches 3 weeks, see a doctor then." The temporal modality
+    carries a real clinical instruction. Uses: C6, caution_persistentCough. -/
+def c32_cough_safety_net : CertifiedClaim where
+  hyp M w   := c6_selfcare.hyp M w ∧ M.Eventually (M.Known (fun v => 21 ≤ M.coughDays v)) w
+  concl M w := M.Permitted (M.seeks .selfCare) w ∧
+               M.Eventually (M.Obligatory (M.SeeksAtLeast .seeDoctor)) w
+  proof M w h :=
+    ⟨c6_selfcare.proof M w h.1,
+     diamond_mono (fun v hv => M.caution_persistentCough v (known_T hv)) h.2⟩
 
 end MediLean

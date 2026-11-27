@@ -39,8 +39,9 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 
 | Group | Premise | Says |
 |-------|---------|------|
-| Patient facts | `ageMonths`, `tempTenths`, `diabetic`, `female` | age in months; highest measured temperature (tenths of °C); diabetes; sex (diabetes and sex added in step 10) |
+| Patient facts | `ageMonths`, `tempTenths`, `diabetic`, `female`, `coughDays` | age in months; highest measured temperature (tenths of °C); diabetes; sex; days of cough (step 11) |
 | Measurements | `fever_of_temp` | a reading of 38.0 °C or more is a fever |
+| | `cough_of_days` | a cough lasting a day or more is a cough (step 11) |
 | Red flags | `redflag_cardiac` | chest pain + arm pain ⇒ cardiac can't be ruled out |
 | | `redflag_meningitis` | fever + stiff neck ⇒ meningitis can't be ruled out |
 | | `redflag_meningitis_headache` | stiff neck + headache ⇒ meningitis can't be ruled out, even with no fever (step 8) |
@@ -59,7 +60,9 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 | | `caution_pneumonia` | pneumonia possible ⇒ at least urgent care obligatory |
 | | `caution_seriousInfection` | serious infection possible ⇒ emergency care obligatory (step 8) |
 | | `caution_highFever` | reading of 40.0 °C or more ⇒ at least urgent care obligatory (step 8) |
-| Proportionality | `permit_selfCare` | cardiac, meningitis, pneumonia, serious infection ruled out, and no reading ≥ 40.0 °C possible ⇒ self-care permitted |
+| | `caution_persistentCough` | cough of 21 days or more ⇒ at least see a doctor (step 11) |
+| Proportionality | `permit_selfCare` | cardiac, meningitis, pneumonia, serious infection ruled out, no reading ≥ 40.0 °C possible, and no cough of 21+ days possible ⇒ self-care permitted |
+| | `permit_seeDoctor` | same, but a persistent cough is fine ⇒ seeing a doctor permitted (step 11) |
 | | `permit_urgentCare` | cardiac, meningitis, serious infection ruled out ⇒ urgent care permitted |
 | Pathways | `one_pathway` | one care pathway at a time |
 
@@ -101,6 +104,11 @@ T and 4 for time, and D for obligation.
 | C28 | the low-risk shortcut (C6c) for a **woman** ⇒ self-care permitted | rejected, correctly: her breathlessness could be cardiac | — |
 | C29 | the low-risk shortcut for a **diabetic** man ⇒ self-care permitted | rejected, correctly | — |
 | C30 | C11 for a **woman** ⇒ urgent care permitted | rejected, correctly | — |
+| C31 | age 1–64, cough of **21 days** (the boundary), no red flags ⇒ at least see a doctor, seeing a doctor permitted, self-care forbidden | proved (step 11): **the "see a doctor" level is finally used** | caution_persistentCough, permit_seeDoctor |
+| C32 | self-care now; if the cough reaches 3 weeks, see a doctor then | proved (step 11) | C6, caution_persistentCough, `Eventually` |
+| C33 | a cough of **20 days** obliges a doctor's visit | rejected, correctly: pins the threshold at 21 days | — |
+| C34 | a persistent cough alone obliges urgent care | rejected, correctly | — |
+| C35 | chest pain that is **tender to the touch**, every other red flag absent ⇒ self-care permitted | rejected, correctly: a heart attack can present this way | — |
 | C20 | C6's checklist **without confirming age** ⇒ self-care permitted | rejected, correctly: infant meningitis can be silent | — |
 | C20b | same, with age ≥ **11 months** confirmed | rejected, correctly: pins the age gate at 12 months | — |
 | C21 | age ≤ **3 months** + fever ⇒ emergency care obligatory | rejected, correctly: pins the infant rule at "under 3 months" | — |
@@ -111,11 +119,11 @@ Every verdict's hypothesis holds in some test model, so none is true only
 because nothing satisfies it. Every test model is checked by `decide`
 against every premise.
 
-## Test results (step 10)
+## Test results (step 11)
 
 - **Layering:** OK.
-- **Axiom audit:** 38 results. None uses `sorry` or classical choice.
-- **Mutation testing:** 32 of 35 caught. Both survivors were marked benign in
+- **Axiom audit:** 43 results. None uses `sorry` or classical choice.
+- **Mutation testing:** 37 of 40 caught. Both survivors were marked benign in
   advance. The harness now reports *every* layer that catches a mutation:
 
 | Mutation | Kind | Caught by |
@@ -137,6 +145,10 @@ against every premise.
 | needs: atypical cardiac not in women / not in diabetics | unsafe | models (C28, C29), checklists |
 | needs: meningitis without confusion | unsafe | models, checklists |
 | red flag: fever + confusion also needs a stiff neck | unsafe | verdicts (C27) |
+| **exception: tender chest pain is not cardiac** | unsafe | **models** (`tenderMI`, the clinical counterexample), checklists |
+| threshold: persistent cough from 28 days | unsafe | verdicts (C31 at 21 days) |
+| threshold: persistent cough from 14 days | cautious | verdicts, models (C33 at 20 days), checklists |
+| permit: self-care skips persistent-cough check; see-doctor skips meningitis check | unsafe | verdicts, models, checklists |
 | needs: older pneumonia never confusion-only | benign | **survived: the clause is idle (see step 10)** |
 | permit: any check skipped (meningitis, pneumonia, infant infection, high fever) | unsafe | verdicts, models, checklists |
 | permit: self-care also needs viral ruled out | cautious | verdicts, checklists |
@@ -296,12 +308,42 @@ flag covers cough plus breathlessness without fever in older adults (C23).
   name and the script exited silently mid-audit. Failures are now loud, and
   `pipefail` makes a failed build stop the script.
 
+**Step 11: duration, and a premise that lowers concern.**
+
+- **"See a doctor" is finally used.** Cough duration became a patient fact,
+  and a cough lasting 3 weeks or more needs a doctor's assessment (C31).
+  This needed:
+  - a new permit premise for that level (`permit_seeDoctor`);
+  - one more block on `permit_selfCare`, by the caution/permit invariant from
+    step 8;
+  - one more self-care question when a cough is present ("has it lasted less
+    than 3 weeks?").
+  "See a doctor" was proved useless in the step-5 table fragment. Now it is
+  certified for its own case and pinned at its boundary: 20 days isn't enough
+  (C33), and a persistent cough alone doesn't need urgent care (C34).
+- **The temporal modality does real clinical work.** C32 is real
+  safety-netting advice: "self-care is fine for this cough now; if it reaches
+  3 weeks, see a doctor then."
+- **The theory can't safely contain a premise that lowers concern.** In this
+  logic, lowering concern means letting something *rule a condition out*. That
+  is strengthening a "needs" premise, which is exactly the unsafe direction.
+  The tempting rule "chest pain that hurts more when you press on the chest
+  wall isn't cardiac" lowers the likelihood but doesn't exclude a heart attack.
+  So instead of adding it, I encoded the clinical counterexample as a test
+  model (`tenderMI`: a heart attack with a tender chest wall). Any premise
+  that let tenderness rule out a cardiac event would make that model fail to
+  build, and the mutation suite confirms it does. C35 records the rejection.
+  **Test models can encode known clinical counterexamples, which makes them a
+  guard against plausible-sounding but unsafe premises.** Evidence that
+  *lowers probability* without excluding a condition can't be expressed in a
+  qualitative logic. That is the calibration problem again.
+
 ## Open design questions
 
 1. **How knowledge and time interact.** No frame condition links `compat`
    and `later` yet, for example perfect recall.
-2. **"See a doctor" has no premise.** Nothing requires or permits it. It needs
-   a condition at that level, such as a cough lasting weeks.
+2. **More "see a doctor" cases.** Only the persistent cough uses that level
+   so far.
 3. **Calibration of the atypical-cardiac premise.** Treating every woman's
    breathlessness as possibly cardiac is safe but blunt. A probabilistic or
    risk-score premise could narrow it, but the logic is qualitative. This is
@@ -316,8 +358,10 @@ flag covers cough plus breathlessness without fever in older adults (C23).
 
 ## Candidate next steps
 
-- Add an exception-style premise, for example "chest pain reproduced by
-  pressing on the chest wall", and see whether the theory can express
-  *lowering* concern without unsafe side effects.
+- Build a small library of clinical counterexample models (well-known
+  atypical presentations), so that unsafe premises are rejected by
+  construction.
+- Give the knowledge-time interaction a frame condition (perfect recall), so
+  claims can reason about symptoms that were confirmed earlier.
 - Add duration, so "see a doctor" gets a premise.
 - Decide the reported-versus-measured fever question and encode it.

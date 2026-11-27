@@ -43,7 +43,7 @@ abbrev onset := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ (if a.1 then 3 else 0) ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else []))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False) (fun _ => 0)
 
 /-! ### Genuine doubt: scenarios the user can't tell apart -/
 
@@ -55,7 +55,7 @@ abbrev armUnsure := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else [.chestPain]))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False) (fun _ => 0)
 
 /-- Fever in one scenario, a (harmless) stiff neck in the other; never both. -/
 abbrev separateDoubts := finite_model% (Bool × Urgency)
@@ -63,7 +63,7 @@ abbrev separateDoubts := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 0 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.stiffNeck] else [.fever]))
   (fun c w => c ∈ (if w.1 then [] else [Condition.viral]))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False) (fun _ => 0)
 
 /-- Fever with a stiff neck in one scenario, nothing in the other. -/
 abbrev jointDoubt := finite_model% (Bool × Urgency)
@@ -71,7 +71,7 @@ abbrev jointDoubt := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.fever, .stiffNeck] else []))
   (fun c w => c ∈ (if w.1 then [Condition.meningitis, .viral] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False) (fun _ => 0)
 
 /-! ### Rejected claims -/
 
@@ -135,10 +135,11 @@ abbrev neckHeadache    := situation% [.stiffNeck, .headache] [.meningitis] 3
     neck, headache or fever. Age is a question the interface must ask. -/
 theorem c20_selfcare_needs_age :
     ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => M.coughDays v < 21) w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
                        .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h infantMening now (by decide)) (by decide)
+  fun h => absurd (h infantMening now (by decide) (by decide)) (by decide)
 
 abbrev elevenMonthMening := situationAt% 11 0 [] [.meningitis] 3
 
@@ -148,10 +149,11 @@ abbrev elevenMonthMening := situationAt% 11 0 [] [.meningitis] 3
 theorem c20b_age_gate_boundary :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 11 ≤ M.ageMonths v) w →
+        M.Known (fun v => M.coughDays v < 21) w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
                        .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h elevenMonthMening now (by decide) (by decide)) (by decide)
+  fun h => absurd (h elevenMonthMening now (by decide) (by decide) (by decide)) (by decide)
 
 /-- C21 (rejected, boundary). At exactly 3 months, fever alone no longer
     obliges emergency care: the infant-fever rule is "under 3 months". -/
@@ -187,10 +189,11 @@ theorem c24_c11_not_for_older :
 theorem c25_afebrile_boundary :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v ≤ 780) w →
+        M.Known (fun v => M.coughDays v < 21) w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
                        .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h afebrile65 now (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h afebrile65 now (by decide) (by decide) (by decide) (by decide)) (by decide)
 
 /-- C26 (rejected, boundary). At exactly 65, no chest or arm pain no longer
     rules out a cardiac event: breathlessness alone could be one. Pins the
@@ -218,18 +221,20 @@ theorem c28_shortcut_not_for_women :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
         M.Known (fun v => ¬ M.diabetic v) w →
+        M.Known (fun v => M.coughDays v < 21) w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h breathlessWoman now (by decide) (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h breathlessWoman now (by decide) (by decide) (by decide) (by decide) (by decide)) (by decide)
 
 /-- C29 (rejected). Nor for a man with diabetes. -/
 theorem c29_shortcut_not_for_diabetics :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
         M.Known (fun v => ¬ M.female v) w →
+        M.Known (fun v => M.coughDays v < 21) w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h breathlessDiabetic now (by decide) (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h breathlessDiabetic now (by decide) (by decide) (by decide) (by decide) (by decide)) (by decide)
 
 /-- C30 (rejected). C11's urgent-care verdict does not carry over to a woman:
     her breathlessness could itself be a cardiac event. -/
@@ -242,5 +247,50 @@ theorem c30_c11_not_for_women :
         M.Permitted (M.seeks .urgentCare) w :=
   fun h => absurd (h womanPneumoCardiac now (by decide) (by decide) (by decide) (by decide)
     (by decide)) (by decide)
+
+/-! ### Cough duration and chest-wall tenderness (step 11) -/
+
+abbrev cough21 := coughFor% 21 [.cough] [.viral] 1
+abbrev cough20 := coughFor% 20 [.cough] [.viral] 0
+
+/-- Cough for 5 days now; for 21 days later. Self-care now, a doctor later. -/
+abbrev coughStory := finite_model% (Bool × Urgency)
+  (fun a b => a.1 = b.1) (fun a b => a.1 = false ∨ b.1 = true)
+  (fun a b => a.1 = b.1 ∧ (if a.1 then 1 else 0) ≤ Urgency.rank b.2)
+  (fun s _ => s ∈ [Symptom.cough]) (fun c _ => c ∈ [Condition.viral])
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
+  (fun w => if w.1 then 21 else 5)
+
+/-- A clinical counterexample: a heart attack in a 50-year-old man whose
+    chest pain IS reproduced by pressing on the chest wall. This happens;
+    reproducible tenderness lowers the likelihood of a cardiac cause but
+    does not exclude it. Any premise that lets tenderness rule out a cardiac
+    event makes this model fail to build. -/
+abbrev tenderMI := situationAt% 600 0 [.chestPain, .chestWallTender] [.cardiac] 3
+
+/-- C33 (rejected, boundary). A cough of 20 days does not yet oblige a
+    doctor's visit. Pins the persistent-cough threshold at 21 days. -/
+theorem c33_cough_20_days :
+    ¬ ∀ (M : TriageModel) w, M.Known (fun v => 20 ≤ M.coughDays v) w →
+        M.Obligatory (M.SeeksAtLeast .seeDoctor) w :=
+  fun h => absurd (h cough20 now (by decide)) (by decide)
+
+/-- C34 (rejected). A persistent cough alone does not oblige urgent care. -/
+theorem c34_cough_not_urgent :
+    ¬ ∀ (M : TriageModel) w, M.Known (fun v => 21 ≤ M.coughDays v) w →
+        M.Obligatory (M.SeeksAtLeast .urgentCare) w :=
+  fun h => absurd (h cough21 now (by decide)) (by decide)
+
+/-- C35 (rejected). Chest pain that is tender to the touch, with every other
+    red flag absent, does NOT certify self-care: the tempting exception
+    "tender chest pain isn't cardiac" is not part of the theory, and
+    `tenderMI` shows why it must not be. -/
+theorem c35_tender_chest_pain_not_selfcare :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
+        M.Known (M.has .chestWallTender) w →
+        M.RuledAllOut [.armPain, .stiffNeck, .headache, .confusion, .fever, .breathless, .cough] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h tenderMI now (by decide) (by decide) (by decide) (by decide)) (by decide)
 
 end MediLean

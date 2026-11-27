@@ -42,5 +42,8 @@ example : c23_older_cough_breathless.hyp olderPneumo now := by
   unfold c23_older_cough_breathless; decide
 example : c6c_selfcare_lowRisk.hyp coldCough now := by unfold c6c_selfcare_lowRisk; decide
 example : c27_fever_confusion.hyp feverConfusion now := by unfold c27_fever_confusion; decide
+example : c31_persistent_cough.hyp cough21 now := by unfold c31_persistent_cough; decide
+example : c32_cough_safety_net.hyp coughStory (false, .selfCare) := by
+  unfold c32_cough_safety_net c6_selfcare; decide
 
 end MediLean
