@@ -37,10 +37,18 @@ end
 section
 variable {M : TriageModel} {w : M.W}
 
-/-- Ruling out a cardiac event: no chest pain and no arm pain. -/
-theorem ruledOut_cardiac (hc : M.RuledOut (M.has .chestPain) w)
+/-- Ruling out a cardiac event, under 65: no chest pain and no arm pain. -/
+theorem ruledOut_cardiac (hyoung : M.Known (fun v => M.ageMonths v < 780) w)
+    (hc : M.RuledOut (M.has .chestPain) w)
     (ha : M.RuledOut (M.has .armPain) w) : M.RuledOut (M.cond .cardiac) w :=
-  by intro v hv hx; have := M.cardiac_needs v hx; have := hc v hv; have := ha v hv; simp_all
+  by intro v hv hx; have := M.cardiac_needs v hx; have := hyoung v hv; have := hc v hv; have := ha v hv; simp_all <;> omega
+
+/-- Ruling out a cardiac event, at any age: no chest pain, no arm pain and
+    no breathlessness. -/
+theorem ruledOut_cardiac_noBreath (hc : M.RuledOut (M.has .chestPain) w)
+    (ha : M.RuledOut (M.has .armPain) w)
+    (hb : M.RuledOut (M.has .breathless) w) : M.RuledOut (M.cond .cardiac) w :=
+  by intro v hv hx; have := M.cardiac_needs v hx; have := hc v hv; have := ha v hv; have := hb v hv; grind
 
 /-- Ruling out meningitis: the patient is known to be at least one year old,
     and has no stiff neck and no headache. (For infants there is no way to
@@ -76,15 +84,15 @@ theorem known_age_mono {a b : Nat} (hab : b ≤ a) (h : M.Known (fun v => a ≤ 
     M.Known (fun v => b ≤ M.ageMonths v) w :=
   fun v hv => Nat.le_trans hab (h v hv)
 
-/-- Ruling out pneumonia, first way: no fever. -/
-theorem ruledOut_pneumonia_noFever (hf : M.RuledOut (M.has .fever) w) :
-    M.RuledOut (M.cond .pneumonia) w :=
-  by intro v hv hx; have := M.pneumonia_needs v hx; have := hf v hv; simp_all
+/-- Ruling out pneumonia, first way (under 65 only): no fever. -/
+theorem ruledOut_pneumonia_noFever (hyoung : M.Known (fun v => M.ageMonths v < 780) w)
+    (hf : M.RuledOut (M.has .fever) w) : M.RuledOut (M.cond .pneumonia) w :=
+  by intro v hv hx; have := M.pneumonia_needs v hx; have := hyoung v hv; have := hf v hv; grind
 
 /-- Ruling out pneumonia, second way: no cough and no breathlessness. -/
 theorem ruledOut_pneumonia_noCough (hc : M.RuledOut (M.has .cough) w)
     (hb : M.RuledOut (M.has .breathless) w) : M.RuledOut (M.cond .pneumonia) w :=
-  by intro v hv hx; have := M.pneumonia_needs v hx; have := hc v hv; have := hb v hv; simp_all
+  by intro v hv hx; have := M.pneumonia_needs v hx; have := hc v hv; have := hb v hv; grind
 
 /-- "At least emergency" is just "emergency" (it's the top level). -/
 theorem emergency_of_atLeast :

@@ -15,16 +15,18 @@ import MediLean.Claims.Models
 namespace MediLean
 open AdvisoryFrame TriageModel
 
-/-- Level `u` is NOT certified for a patient known to be at least one year
-    old by confirming the absence of `ss`. -/
+/-- Level `u` is NOT certified for a patient known to be aged 1 to 64 by
+    confirming the absence of `ss`. -/
 def NotCertified (u : Urgency) (ss : List Symptom) : Prop :=
   ¬ ∀ (M : TriageModel) w, M.Known (fun v => 12 ≤ M.ageMonths v) w →
+      M.Known (fun v => M.ageMonths v < 780) w →
       M.RuledAllOut ss w → M.Permitted (M.seeks u) w
 
 theorem notCertified_of (M : TriageModel) (w : M.W) {u : Urgency} {ss : List Symptom}
     (hage : M.Known (fun v => 12 ≤ M.ageMonths v) w)
+    (hyoung : M.Known (fun v => M.ageMonths v < 780) w)
     (hr : M.RuledAllOut ss w) (hn : ¬ M.Permitted (M.seeks u) w) : NotCertified u ss :=
-  fun h => hn (h M w hage hr)
+  fun h => hn (h M w hage hyoung hr)
 
 abbrev chestOnly    := situation% [.chestPain] [.cardiac] 3
 abbrev armOnly      := situation% [.armPain] [.cardiac] 3
@@ -40,11 +42,11 @@ theorem c6_checklist_minimal :
     NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .fever] ∧   -- no headache check
     NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache]  -- no fever check
   :=
-  ⟨notCertified_of chestOnly    now (by decide) (by decide) (by decide),
-   notCertified_of armOnly      now (by decide) (by decide) (by decide),
-   notCertified_of stiffOnly    now (by decide) (by decide) (by decide),
-   notCertified_of headacheOnly now (by decide) (by decide) (by decide),
-   notCertified_of feverCough   now (by decide) (by decide) (by decide)⟩
+  ⟨notCertified_of chestOnly    now (by decide) (by decide) (by decide) (by decide),
+   notCertified_of armOnly      now (by decide) (by decide) (by decide) (by decide),
+   notCertified_of stiffOnly    now (by decide) (by decide) (by decide) (by decide),
+   notCertified_of headacheOnly now (by decide) (by decide) (by decide) (by decide),
+   notCertified_of feverCough   now (by decide) (by decide) (by decide) (by decide)⟩
 
 abbrev pneumoChest    := situation% [.fever, .cough, .breathless, .chestPain]
                                     [.pneumonia, .viral, .cardiac] 3
@@ -57,16 +59,19 @@ abbrev pneumoHeadache := situation% [.fever, .cough, .breathless, .headache]
     (C13 in `Models.lean` is the stiff-neck case). -/
 theorem c11_checklist_minimal :
     (¬ ∀ (M : TriageModel) w, M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.Known (fun v => M.ageMonths v < 780) w →
         M.KnownAll [.fever, .cough, .breathless] w →
         M.RuledAllOut [.armPain, .stiffNeck, .headache] w → M.Permitted (M.seeks .urgentCare) w) ∧
     (¬ ∀ (M : TriageModel) w, M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.Known (fun v => M.ageMonths v < 780) w →
         M.KnownAll [.fever, .cough, .breathless] w →
         M.RuledAllOut [.chestPain, .stiffNeck, .headache] w → M.Permitted (M.seeks .urgentCare) w) ∧
     (¬ ∀ (M : TriageModel) w, M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.Known (fun v => M.ageMonths v < 780) w →
         M.KnownAll [.fever, .cough, .breathless] w →
         M.RuledAllOut [.chestPain, .armPain, .stiffNeck] w → M.Permitted (M.seeks .urgentCare) w) :=
-  ⟨fun h => absurd (h pneumoChest    now (by decide) (by decide) (by decide)) (by decide),
-   fun h => absurd (h pneumoArm      now (by decide) (by decide) (by decide)) (by decide),
-   fun h => absurd (h pneumoHeadache now (by decide) (by decide) (by decide)) (by decide)⟩
+  ⟨fun h => absurd (h pneumoChest    now (by decide) (by decide) (by decide) (by decide)) (by decide),
+   fun h => absurd (h pneumoArm      now (by decide) (by decide) (by decide) (by decide)) (by decide),
+   fun h => absurd (h pneumoHeadache now (by decide) (by decide) (by decide) (by decide)) (by decide)⟩
 
 end MediLean

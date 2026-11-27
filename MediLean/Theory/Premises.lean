@@ -48,6 +48,9 @@ structure TriageModel extends AdvisoryFrame where
   redflag_meningitis_headache : ∀ w, has .stiffNeck w → has .headache w → Diamond compat (cond .meningitis) w
   /-- Fever, cough and breathlessness together: pneumonia can't be ruled out. -/
   redflag_pneumonia : ∀ w, has .fever w → has .cough w → has .breathless w → Diamond compat (cond .pneumonia) w
+  /-- From 65, cough and breathlessness together: pneumonia can't be ruled out,
+      even without a fever (older adults often don't mount one). -/
+  redflag_pneumonia_older : ∀ w, 780 ≤ ageMonths w → has .cough w → has .breathless w → Diamond compat (cond .pneumonia) w
   /-- Fever, cough or sore throat: a viral infection can't be ruled out. -/
   redflag_viral : ∀ w, has .fever w ∨ has .cough w ∨ has .soreThroat w → Diamond compat (cond .viral) w
   /-- Any fever in an infant under 3 months: a serious bacterial infection
@@ -57,16 +60,19 @@ structure TriageModel extends AdvisoryFrame where
   -- ── Necessary symptoms: what a condition can't occur without ────────────
   -- These are how danger gets ruled out, so they carry the most risk.
 
-  /-- A cardiac event comes with chest pain or arm pain.
-      CRUDE: atypical presentations (jaw pain, breathlessness) exist. -/
-  cardiac_needs : ∀ w, cond .cardiac w → has .chestPain w ∨ has .armPain w
+  /-- A cardiac event comes with chest pain or arm pain, or, from 65, it can
+      show up as breathlessness alone.
+      CRUDE: diabetics and women also present atypically (not modelled);
+      jaw pain is not in the vocabulary. -/
+  cardiac_needs : ∀ w, cond .cardiac w → has .chestPain w ∨ has .armPain w ∨ (780 ≤ ageMonths w ∧ has .breathless w)
   /-- From age one, meningitis comes with a stiff neck or a headache.
       Infants often show neither, so for them this gives no way to rule it out.
       CRUDE: the elderly can also present atypically. -/
   meningitis_needs : ∀ w, 12 ≤ ageMonths w → cond .meningitis w → has .stiffNeck w ∨ has .headache w
-  /-- Pneumonia comes with fever, and with cough or breathlessness.
-      CRUDE: afebrile pneumonia occurs in the elderly. -/
-  pneumonia_needs : ∀ w, cond .pneumonia w → has .fever w ∧ (has .cough w ∨ has .breathless w)
+  /-- Pneumonia comes with cough or breathlessness, and, under 65, with a
+      fever. From 65 it can be afebrile.
+      CRUDE: older adults may present with confusion only (not in the vocabulary). -/
+  pneumonia_needs : ∀ w, cond .pneumonia w → (ageMonths w < 780 → has .fever w) ∧ (has .cough w ∨ has .breathless w)
   /-- A viral infection comes with fever, cough, sore throat or headache. -/
   viral_needs : ∀ w, cond .viral w → has .fever w ∨ has .cough w ∨ has .soreThroat w ∨ has .headache w
   /-- The serious-infection concern here is specific to febrile infants under 3 months. -/

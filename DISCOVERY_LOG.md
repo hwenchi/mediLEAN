@@ -45,11 +45,12 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 | | `redflag_meningitis` | fever + stiff neck ⇒ meningitis can't be ruled out |
 | | `redflag_meningitis_headache` | stiff neck + headache ⇒ meningitis can't be ruled out, even with no fever (step 8) |
 | | `redflag_pneumonia` | fever + cough + breathlessness ⇒ pneumonia can't be ruled out |
+| | `redflag_pneumonia_older` | **from 65:** cough + breathlessness ⇒ pneumonia can't be ruled out, no fever needed (step 9) |
 | | `redflag_viral` | fever, cough or sore throat ⇒ viral can't be ruled out |
 | | `redflag_infant_fever` | infant under 3 months + fever ⇒ serious infection can't be ruled out (step 8) |
-| Necessary symptoms | `cardiac_needs` | cardiac ⇒ chest pain ∨ arm pain (CRUDE) |
+| Necessary symptoms | `cardiac_needs` | cardiac ⇒ chest pain ∨ arm pain ∨ (**from 65:** breathlessness) (step 9; CRUDE: diabetics, women not modelled) |
 | | `meningitis_needs` | **from age 1:** meningitis ⇒ stiff neck ∨ headache (step 8: age-gated) |
-| | `pneumonia_needs` | pneumonia ⇒ fever ∧ (cough ∨ breathlessness) (CRUDE) |
+| | `pneumonia_needs` | pneumonia ⇒ (**under 65:** fever) ∧ (cough ∨ breathlessness) (step 9) |
 | | `viral_needs` | viral ⇒ fever ∨ cough ∨ sore throat ∨ headache |
 | | `seriousInfection_needs` | serious infection ⇒ under 3 months ∧ fever (step 8) |
 | Caution | `caution_cardiac` | cardiac possible ⇒ emergency care obligatory |
@@ -72,12 +73,12 @@ T and 4 for time, and D for obligation.
 | C2 | chest + arm ⇒ emergency care permitted | proved | C1 + law D |
 | C3 | fever + stiff neck ⇒ emergency care obligatory | proved | redflag_meningitis, caution_meningitis |
 | C4 | chest + arm ⇒ cardiac not ruled out | proved | redflag_cardiac |
-| C6 | age ≥ 1 year; no chest, arm, stiff neck, headache or fever ⇒ self-care permitted | proved (age added in step 8) | the *_needs premises, fever_of_temp, permit_selfCare |
-| C6b | age ≥ 1 year, no reading ≥ 40.0 °C; fever, but no chest, arm, stiff neck, headache, cough or breathlessness ⇒ self-care permitted | proved | same, ruling out pneumonia the other way |
+| C6 | **age 1–64**; no chest, arm, stiff neck, headache or fever ⇒ self-care permitted | proved (age bounds from steps 8, 9) | the *_needs premises, fever_of_temp, permit_selfCare |
+| C6b | age ≥ 1 year (**any adult age, including 65+**), no reading ≥ 40.0 °C; fever, but no chest, arm, stiff neck, headache, cough or breathlessness ⇒ self-care permitted | proved | same, ruling out pneumonia the other way |
 | C8 | chest + arm ⇒ self-care forbidden | proved | C1's premises + one_pathway |
 | C9 | red flags eventually ⇒ emergency care eventually obligatory | proved | C1 lifted through `Eventually` |
 | C10 | self-care now, emergency care if chest + arm pain later | proved | C6 ∧ C9 |
-| C11 | age ≥ 1 year; fever + cough + breathless, with cardiac and meningitis flags absent ⇒ urgent care | proved | 7 premises |
+| C11 | **age 1–64**; fever + cough + breathless, with cardiac and meningitis flags absent ⇒ urgent care | proved | 7 premises |
 | C14 | chest pain confirmed, **unsure** about arm pain ⇒ emergency care obligatory | proved | redflag_cardiac, caution_cardiac, **law 4** |
 | C16 | fever and stiff neck might be present **together** ⇒ emergency care obligatory | proved | redflag_meningitis, caution_meningitis, law 4 |
 | C5 | fever alone ⇒ emergency care obligatory | rejected, correctly | — |
@@ -90,6 +91,10 @@ T and 4 for time, and D for obligation.
 | C18 | measured **38.0 °C** (the boundary) + stiff neck ⇒ emergency care obligatory | proved (step 8) | fever_of_temp, redflag_meningitis, caution_meningitis |
 | C19 | measured **40.0 °C** (the boundary) ⇒ at least urgent care, self-care forbidden | proved (step 8) | caution_highFever, one_pathway |
 | C22 | stiff neck + headache, no fever needed ⇒ emergency care obligatory | proved (step 8) | redflag_meningitis_headache, caution_meningitis |
+| C23 | 65+ with cough + breathlessness, no fever needed ⇒ at least urgent care, self-care forbidden | proved (step 9) | redflag_pneumonia_older, caution_pneumonia |
+| C24 | C11 for a 70-year-old ⇒ urgent care permitted | rejected, correctly: the breathlessness could be cardiac | — |
+| C25 | age ≤ **65** and no fever ⇒ pneumonia ruled out (as part of C6) | rejected, correctly: pins the afebrile-pneumonia age | — |
+| C26 | age ≤ **65** and no chest/arm pain ⇒ cardiac ruled out (as part of C6) | rejected, correctly: pins the atypical-cardiac age | — |
 | C20 | C6's checklist **without confirming age** ⇒ self-care permitted | rejected, correctly: infant meningitis can be silent | — |
 | C20b | same, with age ≥ **11 months** confirmed | rejected, correctly: pins the age gate at 12 months | — |
 | C21 | age ≤ **3 months** + fever ⇒ emergency care obligatory | rejected, correctly: pins the infant rule at "under 3 months" | — |
@@ -100,11 +105,11 @@ Every verdict's hypothesis holds in some test model, so none is true only
 because nothing satisfies it. Every test model is checked by `decide`
 against every premise.
 
-## Test results (step 8)
+## Test results (step 9)
 
 - **Layering:** OK.
-- **Axiom audit:** 29 results. None uses `sorry` or classical choice.
-- **Mutation testing:** 23 of 25 caught. Both survivors were marked benign in
+- **Axiom audit:** 33 results. None uses `sorry` or classical choice.
+- **Mutation testing:** 28 of 30 caught. Both survivors were marked benign in
   advance. The harness now reports *every* layer that catches a mutation:
 
 | Mutation | Kind | Caught by |
@@ -119,7 +124,10 @@ against every premise.
 | needs: meningitis age gate removed | unsafe | models (C20), checklists |
 | needs: meningitis age gate lowered to 3 months | unsafe | models (**C20b**, the 11-month boundary), checklists |
 | needs: pneumonia also needs headache | unsafe | models, checklists |
-| needs: pneumonia without fever | cautious | rules (`ruledOut_pneumonia_noFever` becomes false) |
+| needs: pneumonia without fever at any age | cautious | rules (`ruledOut_pneumonia_noFever` becomes false) |
+| needs: pneumonia always needs fever; afebrile only from 70 | unsafe | models (C25 at 65), checklists |
+| needs: cardiac never breathlessness alone; atypical only from 70 | unsafe | models (C26 at 65), checklists |
+| red flag: older pneumonia also needs fever | unsafe | verdicts (C23) |
 | permit: any check skipped (meningitis, pneumonia, infant infection, high fever) | unsafe | verdicts, models, checklists |
 | permit: self-care also needs viral ruled out | cautious | verdicts, checklists |
 | red flag: viral ignores sore throat; needs: viral without headache | benign | survived |
@@ -220,16 +228,40 @@ couldn't express.
   The ruling-out proofs use `grind`, so they depend on what a premise says,
   not on its exact form.
 
+**Step 9: atypical presentations in older adults.** With age available,
+two premises marked CRUDE became more accurate. From 65, pneumonia can come
+without a fever, and a cardiac event can be breathlessness alone. A new red
+flag covers cough plus breathlessness without fever in older adults (C23).
+
+- **The checklists split by age, and the theory found the split.** C6's
+  short self-care checklist (no fever) now holds only for ages 1 to 64. From
+  65, "no fever" no longer rules out pneumonia, and "no chest or arm pain"
+  no longer rules out a cardiac event. C6b (ask about cough and
+  breathlessness instead) works at every adult age, because ruling out
+  breathlessness also closes the atypical cardiac route. Patients 65 and over
+  need the longer checklist.
+- **A middle verdict doesn't transfer to older patients.** C11 (fever, cough
+  and breathlessness ⇒ urgent care) is now only for under-65s. For a
+  70-year-old the breathlessness could itself be cardiac, so urgent care
+  can't be certified (C24).
+- **The new age thresholds are pinned at their boundaries** by C25 and C26,
+  which test exactly 65. Every age-gate mutation (removed, or moved to 70) is
+  caught by test models, not by proofs breaking.
+- **The axiom audit caught a regression.** `grind` proved the cardiac
+  ruling-out rule using classical choice, because of an age comparison
+  inside a disjunction. Replacing it with `simp_all` then `omega` kept the
+  proof robust to the premise's form and constructive again.
+
 ## Open design questions
 
 1. **How knowledge and time interact.** No frame condition links `compat`
    and `later` yet, for example perfect recall.
 2. **"See a doctor" has no premise.** Nothing requires or permits it. It needs
    a condition at that level, such as a cough lasting weeks.
-3. **Atypical presentations, now that age is available.** Afebrile pneumonia
-   in the elderly, and atypical cardiac presentations in older people,
-   diabetics and women. `pneumonia_needs` and `cardiac_needs` should get the
-   same treatment `meningitis_needs` got.
+3. **Atypical presentations beyond age.** Diabetics and women also have
+   atypical cardiac presentations, and confusion is a common presentation of
+   pneumonia in older adults. Both need new patient facts or symptoms in
+   the vocabulary.
 4. **Reported versus measured fever.** `fever_of_temp` goes one way only. A
    user who *feels* feverish but measured 37.5 °C has a fever by report and
    not by reading. Which one wins?
@@ -240,7 +272,7 @@ couldn't express.
 
 ## Candidate next steps
 
-- Gate `pneumonia_needs` and `cardiac_needs` by age, as was done for
-  meningitis.
+- Add patient history (diabetes) and sex as patient facts, and "confusion"
+  as a symptom, then revisit `cardiac_needs` and `pneumonia_needs`.
 - Add duration, so "see a doctor" gets a premise.
 - Decide the reported-versus-measured fever question and encode it.

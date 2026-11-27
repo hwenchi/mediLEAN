@@ -63,7 +63,7 @@ macro "finite_model%" W:term:max compat:term:max later:term:max ideal:term:max
        ideal_serial := by decide,
        redflag_cardiac := by decide, redflag_meningitis := by decide,
        redflag_pneumonia := by decide, redflag_viral := by decide,
-       redflag_meningitis_headache := by decide,
+       redflag_meningitis_headache := by decide, redflag_pneumonia_older := by decide,
        redflag_infant_fever := by decide, seriousInfection_needs := by decide,
        cardiac_needs := by decide, meningitis_needs := by decide,
        pneumonia_needs := by decide, viral_needs := by decide,

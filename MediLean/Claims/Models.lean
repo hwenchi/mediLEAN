@@ -103,10 +103,11 @@ theorem c12_pneumonia_not_emergency :
 theorem c13_unchecked_neck :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.Known (fun v => M.ageMonths v < 780) w →
         M.KnownAll [.fever, .cough, .breathless] w →
         M.RuledAllOut [.chestPain, .armPain, .headache] w →
         M.Permitted (M.seeks .urgentCare) w :=
-  fun h => absurd (h pneumoMening now (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h pneumoMening now (by decide) (by decide) (by decide) (by decide)) (by decide)
 
 /-- C15 (rejected). *Separate* doubts are not enough: fever might be present
     and a stiff neck might be present, but never together. Meningitis is
@@ -155,5 +156,43 @@ theorem c21_three_months_boundary :
         M.Known (fun v => M.ageMonths v ≤ 3) w → M.Known (M.has .fever) w →
         M.Obligatory (M.seeks .emergency) w :=
   fun h => absurd (h threeMonthFever now (by decide) (by decide)) (by decide)
+
+/-! ### Older adults (step 9) -/
+
+abbrev olderPneumo        := situationAt% 840 0 [.cough, .breathless] [.pneumonia, .viral] 2
+abbrev olderPneumoCardiac := situationAt% 840 0 [.fever, .cough, .breathless]
+                                         [.pneumonia, .viral, .cardiac] 3
+abbrev afebrile65         := situationAt% 780 0 [.cough] [.pneumonia, .viral] 2
+abbrev breathless65       := situationAt% 780 0 [.breathless] [.cardiac] 3
+
+/-- C24 (rejected). C11's urgent-care verdict does not carry over to a
+    70-year-old: their breathlessness could itself be a cardiac event, which
+    no chest or arm pain question rules out. -/
+theorem c24_c11_not_for_older :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.KnownAll [.fever, .cough, .breathless] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache] w →
+        M.Permitted (M.seeks .urgentCare) w :=
+  fun h => absurd (h olderPneumoCardiac now (by decide) (by decide) (by decide)) (by decide)
+
+/-- C25 (rejected, boundary). At exactly 65, "no fever" no longer rules out
+    pneumonia. Pins the afebrile-pneumonia age at 65. -/
+theorem c25_afebrile_boundary :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v ≤ 780) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h afebrile65 now (by decide) (by decide) (by decide)) (by decide)
+
+/-- C26 (rejected, boundary). At exactly 65, no chest or arm pain no longer
+    rules out a cardiac event: breathlessness alone could be one. Pins the
+    atypical-cardiac age at 65. -/
+theorem c26_atypical_cardiac_boundary :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v ≤ 780) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever, .cough] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h breathless65 now (by decide) (by decide) (by decide)) (by decide)
 
 end MediLean
