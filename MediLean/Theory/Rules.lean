@@ -37,13 +37,17 @@ end
 section
 variable {M : TriageModel} {w : M.W}
 
-/-- Ruling out a cardiac event, under 65: no chest pain and no arm pain. -/
-theorem ruledOut_cardiac (hyoung : M.Known (fun v => M.ageMonths v < 780) w)
+/-- Ruling out a cardiac event in a low-risk patient (under 65, not
+    diabetic, not female): no chest pain and no arm pain is enough. -/
+theorem ruledOut_cardiac_lowRisk (hyoung : M.Known (fun v => M.ageMonths v < 780) w)
+    (hnd : M.Known (fun v => ¬ M.diabetic v) w) (hm : M.Known (fun v => ¬ M.female v) w)
     (hc : M.RuledOut (M.has .chestPain) w)
     (ha : M.RuledOut (M.has .armPain) w) : M.RuledOut (M.cond .cardiac) w :=
-  by intro v hv hx; have := M.cardiac_needs v hx; have := hyoung v hv; have := hc v hv; have := ha v hv; simp_all <;> omega
+  by
+    intro v hv hx; have := M.cardiac_needs v hx; have := hyoung v hv; have := hnd v hv
+    have := hm v hv; have := hc v hv; have := ha v hv; simp_all <;> omega
 
-/-- Ruling out a cardiac event, at any age: no chest pain, no arm pain and
+/-- Ruling out a cardiac event in anyone: no chest pain, no arm pain and
     no breathlessness. -/
 theorem ruledOut_cardiac_noBreath (hc : M.RuledOut (M.has .chestPain) w)
     (ha : M.RuledOut (M.has .armPain) w)
@@ -51,12 +55,14 @@ theorem ruledOut_cardiac_noBreath (hc : M.RuledOut (M.has .chestPain) w)
   by intro v hv hx; have := M.cardiac_needs v hx; have := hc v hv; have := ha v hv; have := hb v hv; grind
 
 /-- Ruling out meningitis: the patient is known to be at least one year old,
-    and has no stiff neck and no headache. (For infants there is no way to
+    and has no stiff neck, no headache and no confusion. (For infants there is no way to
     rule it out from symptoms.) -/
 theorem ruledOut_meningitis (hage : M.Known (fun v => 12 ≤ M.ageMonths v) w)
-    (hs : M.RuledOut (M.has .stiffNeck) w)
-    (hh : M.RuledOut (M.has .headache) w) : M.RuledOut (M.cond .meningitis) w :=
-  by intro v hv hx; have := M.meningitis_needs v; have := hage v hv; have := hs v hv; have := hh v hv; grind
+    (hs : M.RuledOut (M.has .stiffNeck) w) (hh : M.RuledOut (M.has .headache) w)
+    (hcf : M.RuledOut (M.has .confusion) w) : M.RuledOut (M.cond .meningitis) w :=
+  by
+    intro v hv hx; have := M.meningitis_needs v; have := hage v hv; have := hs v hv
+    have := hh v hv; have := hcf v hv; grind
 
 /-- Ruling out a serious infection in an infant: the patient is known to be
     at least 3 months old. -/
@@ -89,10 +95,14 @@ theorem ruledOut_pneumonia_noFever (hyoung : M.Known (fun v => M.ageMonths v < 7
     (hf : M.RuledOut (M.has .fever) w) : M.RuledOut (M.cond .pneumonia) w :=
   by intro v hv hx; have := M.pneumonia_needs v hx; have := hyoung v hv; have := hf v hv; grind
 
-/-- Ruling out pneumonia, second way: no cough and no breathlessness. -/
+/-- Ruling out pneumonia, second way (any age): no cough, no breathlessness
+    and no confusion. -/
 theorem ruledOut_pneumonia_noCough (hc : M.RuledOut (M.has .cough) w)
-    (hb : M.RuledOut (M.has .breathless) w) : M.RuledOut (M.cond .pneumonia) w :=
-  by intro v hv hx; have := M.pneumonia_needs v hx; have := hc v hv; have := hb v hv; grind
+    (hb : M.RuledOut (M.has .breathless) w) (hcf : M.RuledOut (M.has .confusion) w) :
+    M.RuledOut (M.cond .pneumonia) w :=
+  by
+    intro v hv hx; have := M.pneumonia_needs v hx; have := hc v hv; have := hb v hv
+    have := hcf v hv; simp_all
 
 /-- "At least emergency" is just "emergency" (it's the top level). -/
 theorem emergency_of_atLeast :

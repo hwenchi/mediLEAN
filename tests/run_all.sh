@@ -7,7 +7,7 @@
 #      witnesses, rejected claims, checklist minimality.
 #   3. axiom audit: no result depends on `sorry` or classical choice.
 #      Lean's standard `propext` / `Quot.sound` are allowed.
-set -eu
+set -euo pipefail
 cd "$(dirname "$0")/.."
 
 echo "== layering"
@@ -27,10 +27,12 @@ echo "== build"
 lake build 2>&1 | tail -1
 
 echo "== axiom audit"
-NAMES=$(grep -rhoE '^(def|theorem) (c[0-9]+[a-z_0-9]*|caution_under_doubt)' MediLean | awk '{print $2}')
+NAMES=$(grep -rhoE '^(def|theorem) (c[0-9]+[A-Za-z_0-9]*|caution_under_doubt)' MediLean | awk '{print $2}')
 TMP="$(mktemp -d)"; trap 'rm -rf "$TMP"' EXIT
 { echo "import MediLean"; echo "open MediLean"; for n in $NAMES; do echo "#print axioms $n"; done; } > "$TMP/Axioms.lean"
-OUT="$(lake env lean "$TMP/Axioms.lean")"
+if ! OUT="$(lake env lean "$TMP/Axioms.lean" 2>&1)"; then
+  echo "$OUT"; echo "FAIL: axiom audit could not run"; exit 1
+fi
 echo "$OUT" | sed 's/^/  /'
 if echo "$OUT" | grep -qE 'sorryAx|Classical.choice'; then
   echo "FAIL: forbidden axiom found"; exit 1

@@ -39,18 +39,19 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 
 | Group | Premise | Says |
 |-------|---------|------|
-| Patient facts | `ageMonths`, `tempTenths` | age in months; highest measured temperature (tenths of °C) |
+| Patient facts | `ageMonths`, `tempTenths`, `diabetic`, `female` | age in months; highest measured temperature (tenths of °C); diabetes; sex (diabetes and sex added in step 10) |
 | Measurements | `fever_of_temp` | a reading of 38.0 °C or more is a fever |
 | Red flags | `redflag_cardiac` | chest pain + arm pain ⇒ cardiac can't be ruled out |
 | | `redflag_meningitis` | fever + stiff neck ⇒ meningitis can't be ruled out |
 | | `redflag_meningitis_headache` | stiff neck + headache ⇒ meningitis can't be ruled out, even with no fever (step 8) |
+| | `redflag_meningitis_confusion` | fever + new confusion ⇒ meningitis can't be ruled out (step 10) |
 | | `redflag_pneumonia` | fever + cough + breathlessness ⇒ pneumonia can't be ruled out |
 | | `redflag_pneumonia_older` | **from 65:** cough + breathlessness ⇒ pneumonia can't be ruled out, no fever needed (step 9) |
 | | `redflag_viral` | fever, cough or sore throat ⇒ viral can't be ruled out |
 | | `redflag_infant_fever` | infant under 3 months + fever ⇒ serious infection can't be ruled out (step 8) |
-| Necessary symptoms | `cardiac_needs` | cardiac ⇒ chest pain ∨ arm pain ∨ (**from 65:** breathlessness) (step 9; CRUDE: diabetics, women not modelled) |
-| | `meningitis_needs` | **from age 1:** meningitis ⇒ stiff neck ∨ headache (step 8: age-gated) |
-| | `pneumonia_needs` | pneumonia ⇒ (**under 65:** fever) ∧ (cough ∨ breathlessness) (step 9) |
+| Necessary symptoms | `cardiac_needs` | cardiac ⇒ chest pain ∨ arm pain ∨ (**65+, diabetic or female:** breathlessness) (steps 9, 10) |
+| | `meningitis_needs` | **from age 1:** meningitis ⇒ stiff neck ∨ headache ∨ confusion (step 8: age-gated; step 10: confusion) |
+| | `pneumonia_needs` | pneumonia ⇒ (**under 65:** fever) ∧ (cough ∨ breathlessness ∨ **65+:** confusion) (steps 9, 10) |
 | | `viral_needs` | viral ⇒ fever ∨ cough ∨ sore throat ∨ headache |
 | | `seriousInfection_needs` | serious infection ⇒ under 3 months ∧ fever (step 8) |
 | Caution | `caution_cardiac` | cardiac possible ⇒ emergency care obligatory |
@@ -73,12 +74,13 @@ T and 4 for time, and D for obligation.
 | C2 | chest + arm ⇒ emergency care permitted | proved | C1 + law D |
 | C3 | fever + stiff neck ⇒ emergency care obligatory | proved | redflag_meningitis, caution_meningitis |
 | C4 | chest + arm ⇒ cardiac not ruled out | proved | redflag_cardiac |
-| C6 | **age 1–64**; no chest, arm, stiff neck, headache or fever ⇒ self-care permitted | proved (age bounds from steps 8, 9) | the *_needs premises, fever_of_temp, permit_selfCare |
-| C6b | age ≥ 1 year (**any adult age, including 65+**), no reading ≥ 40.0 °C; fever, but no chest, arm, stiff neck, headache, cough or breathlessness ⇒ self-care permitted | proved | same, ruling out pneumonia the other way |
+| C6 | **age 1–64**; no chest, arm, stiff neck, headache, **confusion**, fever or **breathlessness** ⇒ self-care permitted | proved (7 questions since step 10) | the *_needs premises, fever_of_temp, permit_selfCare |
+| C6c | **low-risk shortcut**: man aged 1–64 without diabetes; C6 minus the breathlessness question ⇒ self-care permitted | proved (step 10) | cardiac_needs, low-risk form |
+| C6b | age ≥ 1 year (any adult age, any sex), no reading ≥ 40.0 °C; fever, but no chest, arm, stiff neck, headache, confusion, cough or breathlessness ⇒ self-care permitted | proved | same, ruling out pneumonia the other way |
 | C8 | chest + arm ⇒ self-care forbidden | proved | C1's premises + one_pathway |
 | C9 | red flags eventually ⇒ emergency care eventually obligatory | proved | C1 lifted through `Eventually` |
 | C10 | self-care now, emergency care if chest + arm pain later | proved | C6 ∧ C9 |
-| C11 | **age 1–64**; fever + cough + breathless, with cardiac and meningitis flags absent ⇒ urgent care | proved | 7 premises |
+| C11 | **man aged 1–64 without diabetes**; fever + cough + breathless, with cardiac and meningitis flags absent ⇒ urgent care | proved | 7 premises |
 | C14 | chest pain confirmed, **unsure** about arm pain ⇒ emergency care obligatory | proved | redflag_cardiac, caution_cardiac, **law 4** |
 | C16 | fever and stiff neck might be present **together** ⇒ emergency care obligatory | proved | redflag_meningitis, caution_meningitis, law 4 |
 | C5 | fever alone ⇒ emergency care obligatory | rejected, correctly | — |
@@ -95,6 +97,10 @@ T and 4 for time, and D for obligation.
 | C24 | C11 for a 70-year-old ⇒ urgent care permitted | rejected, correctly: the breathlessness could be cardiac | — |
 | C25 | age ≤ **65** and no fever ⇒ pneumonia ruled out (as part of C6) | rejected, correctly: pins the afebrile-pneumonia age | — |
 | C26 | age ≤ **65** and no chest/arm pain ⇒ cardiac ruled out (as part of C6) | rejected, correctly: pins the atypical-cardiac age | — |
+| C27 | fever + new confusion ⇒ emergency care obligatory | proved (step 10) | redflag_meningitis_confusion, caution_meningitis |
+| C28 | the low-risk shortcut (C6c) for a **woman** ⇒ self-care permitted | rejected, correctly: her breathlessness could be cardiac | — |
+| C29 | the low-risk shortcut for a **diabetic** man ⇒ self-care permitted | rejected, correctly | — |
+| C30 | C11 for a **woman** ⇒ urgent care permitted | rejected, correctly | — |
 | C20 | C6's checklist **without confirming age** ⇒ self-care permitted | rejected, correctly: infant meningitis can be silent | — |
 | C20b | same, with age ≥ **11 months** confirmed | rejected, correctly: pins the age gate at 12 months | — |
 | C21 | age ≤ **3 months** + fever ⇒ emergency care obligatory | rejected, correctly: pins the infant rule at "under 3 months" | — |
@@ -105,11 +111,11 @@ Every verdict's hypothesis holds in some test model, so none is true only
 because nothing satisfies it. Every test model is checked by `decide`
 against every premise.
 
-## Test results (step 9)
+## Test results (step 10)
 
 - **Layering:** OK.
-- **Axiom audit:** 33 results. None uses `sorry` or classical choice.
-- **Mutation testing:** 28 of 30 caught. Both survivors were marked benign in
+- **Axiom audit:** 38 results. None uses `sorry` or classical choice.
+- **Mutation testing:** 32 of 35 caught. Both survivors were marked benign in
   advance. The harness now reports *every* layer that catches a mutation:
 
 | Mutation | Kind | Caught by |
@@ -128,6 +134,10 @@ against every premise.
 | needs: pneumonia always needs fever; afebrile only from 70 | unsafe | models (C25 at 65), checklists |
 | needs: cardiac never breathlessness alone; atypical only from 70 | unsafe | models (C26 at 65), checklists |
 | red flag: older pneumonia also needs fever | unsafe | verdicts (C23) |
+| needs: atypical cardiac not in women / not in diabetics | unsafe | models (C28, C29), checklists |
+| needs: meningitis without confusion | unsafe | models, checklists |
+| red flag: fever + confusion also needs a stiff neck | unsafe | verdicts (C27) |
+| needs: older pneumonia never confusion-only | benign | **survived: the clause is idle (see step 10)** |
 | permit: any check skipped (meningitis, pneumonia, infant infection, high fever) | unsafe | verdicts, models, checklists |
 | permit: self-care also needs viral ruled out | cautious | verdicts, checklists |
 | red flag: viral ignores sore throat; needs: viral without headache | benign | survived |
@@ -252,16 +262,50 @@ flag covers cough plus breathlessness without fever in older adults (C23).
   inside a disjunction. Replacing it with `simp_all` then `omega` kept the
   proof robust to the premise's form and constructive again.
 
+**Step 10: women, diabetics, and confusion.** Two new patient facts
+(diabetes, sex) and one new symptom (acute confusion).
+
+- **Widening a "needs" premise moves the cost onto the group it widens
+  for.** A cardiac event can be breathlessness alone in women and
+  diabetics too, not only from 65. So for them, "no chest or arm pain" no
+  longer rules a cardiac event out, and the theory now certifies less for
+  them:
+  - The six-question self-care shortcut (C6c) holds only for men without
+    diabetes (C28, C29).
+  - C11's urgent-care verdict no longer applies to women (C30), because
+    their breathlessness could itself be cardiac. They get "not certified"
+    instead, which means more referral.
+
+  This is the right direction for safety, but it means over-referral falls
+  disproportionately on women, diabetics and older adults. The theory makes
+  that trade-off explicit, which a fluent LLM answer never would.
+- **Confusion joined the meningitis signs.** It is the third sign of the
+  classic triad. A new red flag says fever plus confusion means emergency
+  care (C27). The general self-care checklist (C6) now has seven questions,
+  and every one is proved necessary.
+- **Mutation testing found an idle premise, as predicted.** "From 65,
+  pneumonia can show as confusion alone" never changes any verdict. Ruling
+  out meningitis already requires confusion to be absent, and every permit
+  premise that needs pneumonia ruled out also needs meningitis ruled out.
+  Removing the clause survives every test. The premise is medically true,
+  but under the current permit premises it is redundant. It would matter
+  only if some care level allowed meningitis but not pneumonia, and none
+  does.
+- **The test script itself had a bug.** The audit's name pattern didn't allow
+  capital letters (`c6c_selfcare_lowRisk`), so Lean failed on an unknown
+  name and the script exited silently mid-audit. Failures are now loud, and
+  `pipefail` makes a failed build stop the script.
+
 ## Open design questions
 
 1. **How knowledge and time interact.** No frame condition links `compat`
    and `later` yet, for example perfect recall.
 2. **"See a doctor" has no premise.** Nothing requires or permits it. It needs
    a condition at that level, such as a cough lasting weeks.
-3. **Atypical presentations beyond age.** Diabetics and women also have
-   atypical cardiac presentations, and confusion is a common presentation of
-   pneumonia in older adults. Both need new patient facts or symptoms in
-   the vocabulary.
+3. **Calibration of the atypical-cardiac premise.** Treating every woman's
+   breathlessness as possibly cardiac is safe but blunt. A probabilistic or
+   risk-score premise could narrow it, but the logic is qualitative. This is
+   the plan's "uncertainty" open problem showing up concretely.
 4. **Reported versus measured fever.** `fever_of_temp` goes one way only. A
    user who *feels* feverish but measured 37.5 °C has a fever by report and
    not by reading. Which one wins?
@@ -272,7 +316,8 @@ flag covers cough plus breathlessness without fever in older adults (C23).
 
 ## Candidate next steps
 
-- Add patient history (diabetes) and sex as patient facts, and "confusion"
-  as a symptom, then revisit `cardiac_needs` and `pneumonia_needs`.
+- Add an exception-style premise, for example "chest pain reproduced by
+  pressing on the chest wall", and see whether the theory can express
+  *lowering* concern without unsafe side effects.
 - Add duration, so "see a doctor" gets a premise.
 - Decide the reported-versus-measured fever question and encode it.

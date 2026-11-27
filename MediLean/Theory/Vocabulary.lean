@@ -8,6 +8,7 @@ namespace MediLean
 
 inductive Symptom
   | chestPain | armPain | fever | stiffNeck | headache | cough | soreThroat | breathless
+  | confusion   -- new, acute confusion or drowsiness
   deriving DecidableEq, Repr
 
 inductive Condition

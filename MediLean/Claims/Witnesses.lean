@@ -40,5 +40,7 @@ example : c19_high_fever.hyp highFever now := by unfold c19_high_fever; decide
 example : c22_neck_headache.hyp neckHeadache now := by unfold c22_neck_headache; decide
 example : c23_older_cough_breathless.hyp olderPneumo now := by
   unfold c23_older_cough_breathless; decide
+example : c6c_selfcare_lowRisk.hyp coldCough now := by unfold c6c_selfcare_lowRisk; decide
+example : c27_fever_confusion.hyp feverConfusion now := by unfold c27_fever_confusion; decide
 
 end MediLean

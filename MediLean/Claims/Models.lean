@@ -43,7 +43,7 @@ abbrev onset := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ (if a.1 then 3 else 0) ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else []))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
 
 /-! ### Genuine doubt: scenarios the user can't tell apart -/
 
@@ -55,7 +55,7 @@ abbrev armUnsure := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else [.chestPain]))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
 
 /-- Fever in one scenario, a (harmless) stiff neck in the other; never both. -/
 abbrev separateDoubts := finite_model% (Bool × Urgency)
@@ -63,7 +63,7 @@ abbrev separateDoubts := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 0 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.stiffNeck] else [.fever]))
   (fun c w => c ∈ (if w.1 then [] else [Condition.viral]))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
 
 /-- Fever with a stiff neck in one scenario, nothing in the other. -/
 abbrev jointDoubt := finite_model% (Bool × Urgency)
@@ -71,7 +71,7 @@ abbrev jointDoubt := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.fever, .stiffNeck] else []))
   (fun c w => c ∈ (if w.1 then [Condition.meningitis, .viral] else []))
-  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0) (fun _ => False) (fun _ => False)
 
 /-! ### Rejected claims -/
 
@@ -104,10 +104,12 @@ theorem c13_unchecked_neck :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w →
         M.Known (fun v => M.ageMonths v < 780) w →
+        M.Known (fun v => ¬ M.diabetic v) w → M.Known (fun v => ¬ M.female v) w →
         M.KnownAll [.fever, .cough, .breathless] w →
-        M.RuledAllOut [.chestPain, .armPain, .headache] w →
+        M.RuledAllOut [.chestPain, .armPain, .headache, .confusion] w →
         M.Permitted (M.seeks .urgentCare) w :=
-  fun h => absurd (h pneumoMening now (by decide) (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h pneumoMening now (by decide) (by decide) (by decide) (by decide)
+    (by decide) (by decide)) (by decide)
 
 /-- C15 (rejected). *Separate* doubts are not enough: fever might be present
     and a stiff neck might be present, but never together. Meningitis is
@@ -133,7 +135,8 @@ abbrev neckHeadache    := situation% [.stiffNeck, .headache] [.meningitis] 3
     neck, headache or fever. Age is a question the interface must ask. -/
 theorem c20_selfcare_needs_age :
     ¬ ∀ (M : TriageModel) w,
-        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                       .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
   fun h => absurd (h infantMening now (by decide)) (by decide)
 
@@ -145,7 +148,8 @@ abbrev elevenMonthMening := situationAt% 11 0 [] [.meningitis] 3
 theorem c20b_age_gate_boundary :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 11 ≤ M.ageMonths v) w →
-        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                       .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
   fun h => absurd (h elevenMonthMening now (by decide) (by decide)) (by decide)
 
@@ -171,17 +175,20 @@ abbrev breathless65       := situationAt% 780 0 [.breathless] [.cardiac] 3
 theorem c24_c11_not_for_older :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w →
+        M.Known (fun v => ¬ M.diabetic v) w → M.Known (fun v => ¬ M.female v) w →
         M.KnownAll [.fever, .cough, .breathless] w →
-        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion] w →
         M.Permitted (M.seeks .urgentCare) w :=
-  fun h => absurd (h olderPneumoCardiac now (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h olderPneumoCardiac now (by decide) (by decide) (by decide) (by decide)
+    (by decide)) (by decide)
 
 /-- C25 (rejected, boundary). At exactly 65, "no fever" no longer rules out
     pneumonia. Pins the afebrile-pneumonia age at 65. -/
 theorem c25_afebrile_boundary :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v ≤ 780) w →
-        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                       .fever, .breathless] w →
         M.Permitted (M.seeks .selfCare) w :=
   fun h => absurd (h afebrile65 now (by decide) (by decide) (by decide)) (by decide)
 
@@ -191,8 +198,49 @@ theorem c25_afebrile_boundary :
 theorem c26_atypical_cardiac_boundary :
     ¬ ∀ (M : TriageModel) w,
         M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v ≤ 780) w →
-        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever, .cough] w →
+        M.Known (fun v => ¬ M.diabetic v) w → M.Known (fun v => ¬ M.female v) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever, .cough] w →
         M.Permitted (M.seeks .selfCare) w :=
-  fun h => absurd (h breathless65 now (by decide) (by decide) (by decide)) (by decide)
+  fun h => absurd (h breathless65 now (by decide) (by decide) (by decide) (by decide)
+    (by decide)) (by decide)
+
+/-! ### Women, diabetics, confusion (step 10) -/
+
+abbrev breathlessWoman    := patient% 360 0 False True [.breathless] [.cardiac] 3
+abbrev breathlessDiabetic := patient% 360 0 True False [.breathless] [.cardiac] 3
+abbrev womanPneumoCardiac := patient% 360 0 False True [.fever, .cough, .breathless]
+                                      [.pneumonia, .viral, .cardiac] 3
+abbrev feverConfusion     := situation% [.fever, .confusion] [.meningitis, .viral] 3
+
+/-- C28 (rejected). The low-risk shortcut (C6c, no breathlessness question)
+    does not work for a woman: a cardiac event can be breathlessness alone. -/
+theorem c28_shortcut_not_for_women :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
+        M.Known (fun v => ¬ M.diabetic v) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h breathlessWoman now (by decide) (by decide) (by decide) (by decide)) (by decide)
+
+/-- C29 (rejected). Nor for a man with diabetes. -/
+theorem c29_shortcut_not_for_diabetics :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
+        M.Known (fun v => ¬ M.female v) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h breathlessDiabetic now (by decide) (by decide) (by decide) (by decide)) (by decide)
+
+/-- C30 (rejected). C11's urgent-care verdict does not carry over to a woman:
+    her breathlessness could itself be a cardiac event. -/
+theorem c30_c11_not_for_women :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w → M.Known (fun v => M.ageMonths v < 780) w →
+        M.Known (fun v => ¬ M.diabetic v) w →
+        M.KnownAll [.fever, .cough, .breathless] w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion] w →
+        M.Permitted (M.seeks .urgentCare) w :=
+  fun h => absurd (h womanPneumoCardiac now (by decide) (by decide) (by decide) (by decide)
+    (by decide)) (by decide)
 
 end MediLean

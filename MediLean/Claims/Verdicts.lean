@@ -36,40 +36,62 @@ def c4_cardiac_not_ruled_out : CertifiedClaim where
   concl M w := ¬ M.RuledOut (M.cond .cardiac) w
   proof M w h := possible_not_ruledOut (M.redflag_cardiac w (known_T h.1) (known_T h.2))
 
-/-- C6. Patient aged 1 to 64; no chest pain, arm pain, stiff neck, headache or
-    fever ⇒ self-care is permitted. (A cough-and-sore-throat cold.)
-    The lower age bound is needed since step 8 (meningitis can be silent in
-    infants), the upper since step 9 (from 65, pneumonia can be afebrile and a
-    cardiac event can be breathlessness alone). Older adults: see C6b.
-    Uses: cardiac_needs, meningitis_needs, pneumonia_needs,
-    seriousInfection_needs, fever_of_temp, permit_selfCare. -/
+/-- C6. Patient aged 1 to 64: no chest pain, arm pain, stiff neck, headache,
+    confusion, fever or breathlessness ⇒ self-care is permitted.
+    (A cough-and-sore-throat cold.) The age bounds come from steps 8 and 9;
+    confusion and breathlessness from step 10 (meningitis can show as
+    confusion; a cardiac event can be breathlessness alone in women and
+    diabetics). Older adults: see C6b. Low-risk shortcut: see C6c.
+    Uses: all four *_needs premises, fever_of_temp, permit_selfCare. -/
 def c6_selfcare : CertifiedClaim where
   hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
                M.Known (fun v => M.ageMonths v < 780) w ∧
-               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w
+               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                              .fever, .breathless] w
   concl M w := M.Permitted (M.seeks .selfCare) w
   proof M w h := M.permit_selfCare w
-    (ruledOut_cardiac h.2.1 (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_meningitis h.1 (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
+    (ruledOut_cardiac_noBreath (h.2.2 _ (by decide)) (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
+    (ruledOut_meningitis h.1 (h.2.2 _ (by decide)) (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
     (ruledOut_pneumonia_noFever h.2.1 (h.2.2 _ (by decide)))
     (ruledOut_seriousInfection_noFever (h.2.2 _ (by decide)))
     (noHighFever_of_noFever (h.2.2 _ (by decide)))
 
-/-- C6b. A fever is fine too, if cough and breathlessness are ruled out
-    (pneumonia is then excluded the *other* way) and no reading of 40.0 °C or
-    more is possible. Works at any age from 1, including 65 and over: with
-    no breathlessness, the atypical cardiac route is ruled out too. -/
+/-- C6c. Low-risk shortcut: for a man aged 1 to 64 without diabetes, the
+    breathlessness question can be skipped. Chest and arm pain are then
+    enough to rule out a cardiac event. Uses: as C6, with the low-risk form
+    of cardiac_needs. -/
+def c6c_selfcare_lowRisk : CertifiedClaim where
+  hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
+               M.Known (fun v => M.ageMonths v < 780) w ∧
+               M.Known (fun v => ¬ M.diabetic v) w ∧ M.Known (fun v => ¬ M.female v) w ∧
+               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever] w
+  concl M w := M.Permitted (M.seeks .selfCare) w
+  proof M w h :=
+    have ⟨h12, hy, hnd, hm, hr⟩ := h
+    M.permit_selfCare w
+      (ruledOut_cardiac_lowRisk hy hnd hm (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_pneumonia_noFever hy (hr _ (by decide)))
+      (ruledOut_seriousInfection_noFever (hr _ (by decide)))
+      (noHighFever_of_noFever (hr _ (by decide)))
+
+/-- C6b. A fever is fine too, if cough, breathlessness and confusion are
+    ruled out (pneumonia is then excluded the *other* way) and no reading of
+    40.0 °C or more is possible. Works at any age from 1 and for anyone. -/
 def c6b_selfcare_fever : CertifiedClaim where
   hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
                M.Known (fun v => M.tempTenths v < 400) w ∧
-               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .cough, .breathless] w
+               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion,
+                              .cough, .breathless] w
   concl M w := M.Permitted (M.seeks .selfCare) w
-  proof M w h := M.permit_selfCare w
-    (ruledOut_cardiac_noBreath (h.2.2 _ (by decide)) (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_meningitis h.1 (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_pneumonia_noCough (h.2.2 _ (by decide)) (h.2.2 _ (by decide)))
-    (ruledOut_seriousInfection_age (known_age_mono (by decide) h.1))
-    h.2.1
+  proof M w h :=
+    have ⟨h12, ht, hr⟩ := h
+    M.permit_selfCare w
+      (ruledOut_cardiac_noBreath (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_pneumonia_noCough (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+      (ruledOut_seriousInfection_age (known_age_mono (by decide) h12))
+      ht
 
 /-- C8. Chest pain + arm pain ⇒ self-care is *forbidden*.
     Uses: C1's premises plus one_pathway. -/
@@ -94,31 +116,33 @@ def c10_advice : CertifiedClaim where
                M.Eventually (M.Obligatory (M.seeks .emergency)) w
   proof M w h := ⟨c6_selfcare.proof M w h.1, c9_safety_net.proof M w h.2⟩
 
-/-- C11. A middle verdict, for patients aged 1 to 64 (from 65, the
-    breathlessness could itself be cardiac: see C24). Fever + cough + breathlessness, with the cardiac
-    and meningitis red flags ruled out ⇒ urgent care: at least urgent care
-    is obligatory, urgent care itself is permitted (the ER isn't required),
-    self-care and a routine doctor's visit are forbidden.
+/-- C11. A middle verdict. A man aged 1 to 64 without diabetes, with fever,
+    cough and breathlessness, and the cardiac and meningitis red flags ruled
+    out ⇒ urgent care: at least urgent care is obligatory, urgent care itself
+    is permitted (the ER isn't required), self-care and a routine doctor's
+    visit are forbidden. For older adults, diabetics and women the
+    breathlessness could itself be cardiac (C24, C30).
     Uses: redflag_pneumonia, caution_pneumonia, cardiac_needs,
-    meningitis_needs, permit_urgentCare, one_pathway. -/
+    meningitis_needs, seriousInfection_needs, permit_urgentCare, one_pathway. -/
 def c11_pneumonia : CertifiedClaim where
   hyp M w   := M.Known (fun v => 12 ≤ M.ageMonths v) w ∧
                M.Known (fun v => M.ageMonths v < 780) w ∧
+               M.Known (fun v => ¬ M.diabetic v) w ∧ M.Known (fun v => ¬ M.female v) w ∧
                M.KnownAll [.fever, .cough, .breathless] w ∧
-               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache] w
+               M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .confusion] w
   concl M w := M.Obligatory (M.SeeksAtLeast .urgentCare) w ∧
                M.Permitted (M.seeks .urgentCare) w ∧
                M.Forbidden (M.seeks .selfCare) w ∧
                M.Forbidden (M.seeks .seeDoctor) w
   proof M w h :=
+    have ⟨h12, hy, hnd, hm, hk, hr⟩ := h
     have ho := M.caution_pneumonia w (M.redflag_pneumonia w
-      (known_T (h.2.2.1 _ (by decide))) (known_T (h.2.2.1 _ (by decide)))
-      (known_T (h.2.2.1 _ (by decide))))
+      (known_T (hk _ (by decide))) (known_T (hk _ (by decide))) (known_T (hk _ (by decide))))
     ⟨ho,
      M.permit_urgentCare w
-       (ruledOut_cardiac h.2.1 (h.2.2.2 _ (by decide)) (h.2.2.2 _ (by decide)))
-       (ruledOut_meningitis h.1 (h.2.2.2 _ (by decide)) (h.2.2.2 _ (by decide)))
-       (ruledOut_seriousInfection_age (known_age_mono (by decide) h.1)),
+       (ruledOut_cardiac_lowRisk hy hnd hm (hr _ (by decide)) (hr _ (by decide)))
+       (ruledOut_meningitis h12 (hr _ (by decide)) (hr _ (by decide)) (hr _ (by decide)))
+       (ruledOut_seriousInfection_age (known_age_mono (by decide) h12)),
      forbidden_below (by decide) ho, forbidden_below (by decide) ho⟩
 
 /-- C14. Caution under doubt: chest pain confirmed, the user is *unsure*
@@ -193,5 +217,14 @@ def c23_older_cough_breathless : CertifiedClaim where
     have ho := M.caution_pneumonia w
       (M.redflag_pneumonia_older w (known_T h.1) (known_T h.2.1) (known_T h.2.2))
     ⟨ho, forbidden_below (by decide) ho⟩
+
+
+/-- C27. Fever with new confusion ⇒ emergency care is obligatory.
+    Uses: redflag_meningitis_confusion, caution_meningitis. -/
+def c27_fever_confusion : CertifiedClaim where
+  hyp M w   := M.Known (M.has .fever) w ∧ M.Known (M.has .confusion) w
+  concl M w := M.Obligatory (M.seeks .emergency) w
+  proof M w h := emergency_of_atLeast (M.caution_meningitis w
+    (M.redflag_meningitis_confusion w (known_T h.1) (known_T h.2)))
 
 end MediLean
