@@ -46,4 +46,7 @@ example : c31_persistent_cough.hyp cough21 now := by unfold c31_persistent_cough
 example : c32_cough_safety_net.hyp coughStory (false, .selfCare) := by
   unfold c32_cough_safety_net c6_selfcare; decide
 
+example : c36_possible_confusion.hyp confusionNoCause now := by unfold c36_possible_confusion; decide
+example : c37_rash.hyp rashOnly now := by unfold c37_rash; decide
+
 end MediLean

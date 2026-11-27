@@ -55,14 +55,16 @@ theorem ruledOut_cardiac_noBreath (hc : M.RuledOut (M.has .chestPain) w)
   by intro v hv hx; have := M.cardiac_needs v hx; have := hc v hv; have := ha v hv; have := hb v hv; grind
 
 /-- Ruling out meningitis: the patient is known to be at least one year old,
-    and has no stiff neck, no headache and no confusion. (For infants there is no way to
+    and has no stiff neck, no headache, no confusion and no non-blanching
+    rash. (For infants there is no way to
     rule it out from symptoms.) -/
 theorem ruledOut_meningitis (hage : M.Known (fun v => 12 ≤ M.ageMonths v) w)
     (hs : M.RuledOut (M.has .stiffNeck) w) (hh : M.RuledOut (M.has .headache) w)
-    (hcf : M.RuledOut (M.has .confusion) w) : M.RuledOut (M.cond .meningitis) w :=
+    (hcf : M.RuledOut (M.has .confusion) w) (hrash : M.RuledOut (M.has .rash) w) :
+    M.RuledOut (M.cond .meningitis) w :=
   by
     intro v hv hx; have := M.meningitis_needs v; have := hage v hv; have := hs v hv
-    have := hh v hv; have := hcf v hv; grind
+    have := hh v hv; have := hcf v hv; have := hrash v hv; grind
 
 /-- Ruling out a serious infection in an infant: the patient is known to be
     at least 3 months old. -/

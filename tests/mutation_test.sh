@@ -57,7 +57,7 @@ MUTATIONS=(
   'needs: atypical cardiac not in women         @@unsafe  @@s/ ∨ diabetic w ∨ female w\)/ ∨ diabetic w)/'
   'needs: atypical cardiac not in diabetics     @@unsafe  @@s/ ∨ diabetic w ∨ female w\)/ ∨ female w)/'
   'needs: meningitis without confusion          @@unsafe  @@s/(meningitis_needs : .*?has \.headache w) ∨ has \.confusion w/${1}/'
-  'needs: older pneumonia never confusion-only  @@benign  @@s/ ∨ \(780 ≤ ageMonths w ∧ has \.confusion w\)//'
+  'needs: older pneumonia never confusion-only  @@unsafe  @@s/ ∨ \(780 ≤ ageMonths w ∧ has \.confusion w\)//'
   'red flag: fever + confusion also needs neck  @@unsafe  @@s/(redflag_meningitis_confusion : ∀ w, )/${1}has .stiffNeck w → /'
   'red flag: older pneumonia also needs fever   @@unsafe  @@s/(redflag_pneumonia_older : ∀ w, 780 ≤ ageMonths w → )/${1}has .fever w → /'
   'needs: viral without headache                @@benign  @@s/(viral_needs : .*?has \.soreThroat w) ∨ has \.headache w/${1}/'
@@ -69,6 +69,11 @@ MUTATIONS=(
   'permit: urgent care skips meningitis check   @@unsafe  @@s/(permit_urgentCare : ∀ w, BoxNot compat \(cond \.cardiac\) w → )BoxNot compat \(cond \.meningitis\) w → /${1}/'
   'permit: self-care skips pneumonia check      @@unsafe  @@s/(permit_selfCare : .*?BoxNot compat \(cond \.meningitis\) w → )BoxNot compat \(cond \.pneumonia\) w → /${1}/'
   'permit: self-care also needs viral ruled out @@cautious@@s/(permit_selfCare : ∀ w, )/${1}BoxNot compat (cond .viral) w → /'
+  'red flag: rash also needs fever             @@unsafe  @@s/(redflag_meningitis_rash : ∀ w, )/${1}has .fever w → /'
+  'needs: meningitis without rash              @@unsafe  @@s/ ∨ has \.rash w//'
+  'caution: confusion only needs urgent care   @@unsafe  @@s/(caution_newConfusion : .*?SeeksAtLeast seeks )\.emergency/${1}.urgentCare/'
+  'permit: self-care skips confusion check     @@unsafe  @@s/(permit_selfCare : .*?) BoxNot compat \(has \.confusion\) w →/$1/'
+  'permit: urgent care skips confusion check   @@unsafe  @@s/(permit_urgentCare : .*?) BoxNot compat \(has \.confusion\) w →/$1/'
 )
 
 cd "$WORK" || exit 1

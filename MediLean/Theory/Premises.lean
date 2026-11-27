@@ -54,6 +54,9 @@ structure TriageModel extends AdvisoryFrame where
   /-- Fever with new confusion: meningitis can't be ruled out (the third
       sign of the classic triad). -/
   redflag_meningitis_confusion : ∀ w, has .fever w → has .confusion w → Diamond compat (cond .meningitis) w
+  /-- A non-blanching rash: meningococcal disease (meningitis or septicaemia)
+      can't be ruled out, even with no fever yet. -/
+  redflag_meningitis_rash : ∀ w, has .rash w → Diamond compat (cond .meningitis) w
   /-- Fever, cough and breathlessness together: pneumonia can't be ruled out. -/
   redflag_pneumonia : ∀ w, has .fever w → has .cough w → has .breathless w → Diamond compat (cond .pneumonia) w
   /-- From 65, cough and breathlessness together: pneumonia can't be ruled out,
@@ -73,10 +76,10 @@ structure TriageModel extends AdvisoryFrame where
       up as breathlessness alone.
       CRUDE: nausea, fatigue and jaw pain are not in the vocabulary. -/
   cardiac_needs : ∀ w, cond .cardiac w → has .chestPain w ∨ has .armPain w ∨ ((780 ≤ ageMonths w ∨ diabetic w ∨ female w) ∧ has .breathless w)
-  /-- From age one, meningitis comes with a stiff neck, a headache or
-      confusion. Infants often show none, so for them this gives no way to
-      rule it out. -/
-  meningitis_needs : ∀ w, 12 ≤ ageMonths w → cond .meningitis w → has .stiffNeck w ∨ has .headache w ∨ has .confusion w
+  /-- From age one, meningitis (here including meningococcal septicaemia)
+      comes with a stiff neck, a headache, confusion or a non-blanching rash.
+      Infants often show none, so for them this gives no way to rule it out. -/
+  meningitis_needs : ∀ w, 12 ≤ ageMonths w → cond .meningitis w → has .stiffNeck w ∨ has .headache w ∨ has .confusion w ∨ has .rash w
   /-- Pneumonia comes with cough or breathlessness (or, from 65, possibly
       just confusion), and, under 65, with a fever. From 65 it can be afebrile. -/
   pneumonia_needs : ∀ w, cond .pneumonia w → (ageMonths w < 780 → has .fever w) ∧ (has .cough w ∨ has .breathless w ∨ (780 ≤ ageMonths w ∧ has .confusion w))
@@ -100,6 +103,11 @@ structure TriageModel extends AdvisoryFrame where
   /-- A cough lasting 3 weeks or more needs a doctor's assessment (causes
       include asthma, reflux, TB and cancer), whatever else is present. -/
   caution_persistentCough : ∀ w, 21 ≤ coughDays w → Box ideal (SeeksAtLeast seeks .seeDoctor) w
+  /-- If new confusion can't be ruled out, emergency care is obligatory,
+      whatever the cause. Its causes (stroke, sepsis, low blood sugar, ...)
+      are mostly outside the vocabulary, so this caution is on the symptom
+      itself, not on a condition it makes possible. -/
+  caution_newConfusion : ∀ w, Diamond compat (has .confusion) w → Box ideal (SeeksAtLeast seeks .emergency) w
 
   -- ── Proportionality: lower care is fine once danger is ruled out ────────
   -- Every caution premise above must be blocked here, or the two would
@@ -107,15 +115,16 @@ structure TriageModel extends AdvisoryFrame where
   -- model and every claim about them vacuously true.
 
   /-- With cardiac, meningitis, pneumonia and serious infection ruled out, no
-      reading of 40.0 °C or more possible, and no cough of 3 weeks or more
-      possible, self-care is permitted. -/
-  permit_selfCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Box compat (fun v => coughDays v < 21) w → Diamond ideal (seeks .selfCare) w
+      reading of 40.0 °C or more possible, no cough of 3 weeks or more possible,
+      and no new confusion possible, self-care is permitted. -/
+  permit_selfCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Box compat (fun v => coughDays v < 21) w → BoxNot compat (has .confusion) w → Diamond ideal (seeks .selfCare) w
   /-- With cardiac, meningitis, pneumonia and serious infection ruled out, and
-      no reading of 40.0 °C or more possible, seeing a doctor is permitted
+      no reading of 40.0 °C or more or new confusion possible, seeing a doctor is permitted
       (a persistent cough is fine at this level). -/
-  permit_seeDoctor : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → Diamond ideal (seeks .seeDoctor) w
-  /-- With cardiac, meningitis and serious infection ruled out, urgent care is permitted. -/
-  permit_urgentCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .seriousInfection) w → Diamond ideal (seeks .urgentCare) w
+  permit_seeDoctor : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → BoxNot compat (cond .seriousInfection) w → Box compat (fun v => tempTenths v < 400) w → BoxNot compat (has .confusion) w → Diamond ideal (seeks .seeDoctor) w
+  /-- With cardiac, meningitis and serious infection ruled out, and no new
+      confusion possible, urgent care is permitted. -/
+  permit_urgentCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .seriousInfection) w → BoxNot compat (has .confusion) w → Diamond ideal (seeks .urgentCare) w
 
   -- ── Pathways ────────────────────────────────────────────────────────────
 

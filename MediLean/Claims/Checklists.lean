@@ -1,8 +1,8 @@
 /-
   CLAIMS: checklist minimality.
 
-  C6 certifies self-care from five confirmed absences; C11 certifies urgent
-  care from four. Each test drops one item and gives a model of the premises
+  C6 certifies self-care from eight confirmed absences; C11 certifies urgent
+  care from five. Each test drops one item and gives a model of the premises
   where the shorter checklist holds but the verdict fails. So every item is
   load-bearing: the interface must ask every question.
 
@@ -39,15 +39,16 @@ abbrev headacheOnly  := situation% [.headache] [.meningitis] 3
 abbrev confusionOnly := situation% [.confusion] [.meningitis] 3
 abbrev feverCough    := situation% [.fever, .cough] [.pneumonia, .viral] 2
 
-/-- C6: dropping any one of its seven questions breaks the self-care verdict. -/
+/-- C6: dropping any one of its eight questions breaks the self-care verdict. -/
 theorem c6_checklist_minimal :
-    NotCertified .selfCare [.armPain, .stiffNeck, .headache, .confusion, .fever, .breathless] ∧   -- no chest pain
-    NotCertified .selfCare [.chestPain, .stiffNeck, .headache, .confusion, .fever, .breathless] ∧ -- no arm pain
-    NotCertified .selfCare [.chestPain, .armPain, .headache, .confusion, .fever, .breathless] ∧   -- no stiff neck
-    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .confusion, .fever, .breathless] ∧  -- no headache
-    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .fever, .breathless] ∧   -- no confusion
-    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .breathless] ∧ -- no fever
-    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever]       -- no breathlessness
+    NotCertified .selfCare [.armPain, .stiffNeck, .headache, .confusion, .rash, .fever, .breathless] ∧   -- no chest pain
+    NotCertified .selfCare [.chestPain, .stiffNeck, .headache, .confusion, .rash, .fever, .breathless] ∧ -- no arm pain
+    NotCertified .selfCare [.chestPain, .armPain, .headache, .confusion, .rash, .fever, .breathless] ∧   -- no stiff neck
+    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .confusion, .rash, .fever, .breathless] ∧  -- no headache
+    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .rash, .fever, .breathless] ∧   -- no confusion
+    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .rash, .breathless] ∧ -- no fever
+    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .rash, .fever] ∧     -- no breathlessness
+    NotCertified .selfCare [.chestPain, .armPain, .stiffNeck, .headache, .confusion, .fever, .breathless]  -- no rash
   :=
   ⟨notCertified_of chestOnly       now (by decide) (by decide) (by decide) (by decide) (by decide),
    notCertified_of armOnly         now (by decide) (by decide) (by decide) (by decide) (by decide),
@@ -55,7 +56,8 @@ theorem c6_checklist_minimal :
    notCertified_of headacheOnly    now (by decide) (by decide) (by decide) (by decide) (by decide),
    notCertified_of confusionOnly   now (by decide) (by decide) (by decide) (by decide) (by decide),
    notCertified_of feverCough      now (by decide) (by decide) (by decide) (by decide) (by decide),
-   notCertified_of breathlessWoman now (by decide) (by decide) (by decide) (by decide) (by decide)⟩
+   notCertified_of breathlessWoman now (by decide) (by decide) (by decide) (by decide) (by decide),
+   notCertified_of rashOnly        now (by decide) (by decide) (by decide) (by decide) (by decide)⟩
 
 abbrev pneumoChest     := situation% [.fever, .cough, .breathless, .chestPain]
                                      [.pneumonia, .viral, .cardiac] 3
@@ -64,6 +66,8 @@ abbrev pneumoArm       := situation% [.fever, .cough, .breathless, .armPain]
 abbrev pneumoHeadache  := situation% [.fever, .cough, .breathless, .headache]
                                      [.pneumonia, .viral, .meningitis] 3
 abbrev pneumoConfusion := situation% [.fever, .cough, .breathless, .confusion]
+                                     [.pneumonia, .viral, .meningitis] 3
+abbrev pneumoRash      := situation% [.fever, .cough, .breathless, .rash]
                                      [.pneumonia, .viral, .meningitis] 3
 
 /-- C11's hypotheses for a man aged 1 to 64 without diabetes, with fever,
@@ -78,10 +82,11 @@ def UrgentNotCertified (ss : List Symptom) : Prop :=
 /-- C11: dropping any one ruled-out item breaks the urgent-care verdict
     (C13 in `Models.lean` is the stiff-neck case). -/
 theorem c11_checklist_minimal :
-    UrgentNotCertified [.armPain, .stiffNeck, .headache, .confusion] ∧   -- no chest pain
-    UrgentNotCertified [.chestPain, .stiffNeck, .headache, .confusion] ∧ -- no arm pain
-    UrgentNotCertified [.chestPain, .armPain, .stiffNeck, .confusion] ∧  -- no headache
-    UrgentNotCertified [.chestPain, .armPain, .stiffNeck, .headache]     -- no confusion
+    UrgentNotCertified [.armPain, .stiffNeck, .headache, .confusion, .rash] ∧   -- no chest pain
+    UrgentNotCertified [.chestPain, .stiffNeck, .headache, .confusion, .rash] ∧ -- no arm pain
+    UrgentNotCertified [.chestPain, .armPain, .stiffNeck, .confusion, .rash] ∧  -- no headache
+    UrgentNotCertified [.chestPain, .armPain, .stiffNeck, .headache, .rash] ∧   -- no confusion
+    UrgentNotCertified [.chestPain, .armPain, .stiffNeck, .headache, .confusion] -- no rash
   :=
   ⟨fun h => absurd (h pneumoChest now (by decide) (by decide) (by decide) (by decide)
       (by decide) (by decide)) (by decide),
@@ -90,6 +95,8 @@ theorem c11_checklist_minimal :
    fun h => absurd (h pneumoHeadache now (by decide) (by decide) (by decide) (by decide)
       (by decide) (by decide)) (by decide),
    fun h => absurd (h pneumoConfusion now (by decide) (by decide) (by decide) (by decide)
+      (by decide) (by decide)) (by decide),
+   fun h => absurd (h pneumoRash now (by decide) (by decide) (by decide) (by decide)
       (by decide) (by decide)) (by decide)⟩
 
 end MediLean

@@ -10,6 +10,7 @@ inductive Symptom
   | chestPain | armPain | fever | stiffNeck | headache | cough | soreThroat | breathless
   | confusion   -- new, acute confusion or drowsiness
   | chestWallTender   -- chest pain reproduced by pressing on the chest wall
+  | rash        -- a rash that does not fade when a glass is pressed on it (non-blanching)
   deriving DecidableEq, Repr
 
 inductive Condition

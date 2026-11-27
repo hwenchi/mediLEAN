@@ -46,12 +46,13 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 | | `redflag_meningitis` | fever + stiff neck ⇒ meningitis can't be ruled out |
 | | `redflag_meningitis_headache` | stiff neck + headache ⇒ meningitis can't be ruled out, even with no fever (step 8) |
 | | `redflag_meningitis_confusion` | fever + new confusion ⇒ meningitis can't be ruled out (step 10) |
+| | `redflag_meningitis_rash` | non-blanching rash ⇒ meningitis (incl. meningococcal septicaemia) can't be ruled out, no fever needed (step 12) |
 | | `redflag_pneumonia` | fever + cough + breathlessness ⇒ pneumonia can't be ruled out |
 | | `redflag_pneumonia_older` | **from 65:** cough + breathlessness ⇒ pneumonia can't be ruled out, no fever needed (step 9) |
 | | `redflag_viral` | fever, cough or sore throat ⇒ viral can't be ruled out |
 | | `redflag_infant_fever` | infant under 3 months + fever ⇒ serious infection can't be ruled out (step 8) |
 | Necessary symptoms | `cardiac_needs` | cardiac ⇒ chest pain ∨ arm pain ∨ (**65+, diabetic or female:** breathlessness) (steps 9, 10) |
-| | `meningitis_needs` | **from age 1:** meningitis ⇒ stiff neck ∨ headache ∨ confusion (step 8: age-gated; step 10: confusion) |
+| | `meningitis_needs` | **from age 1:** meningitis ⇒ stiff neck ∨ headache ∨ confusion ∨ non-blanching rash (step 8: age-gated; step 10: confusion; step 12: rash) |
 | | `pneumonia_needs` | pneumonia ⇒ (**under 65:** fever) ∧ (cough ∨ breathlessness ∨ **65+:** confusion) (steps 9, 10) |
 | | `viral_needs` | viral ⇒ fever ∨ cough ∨ sore throat ∨ headache |
 | | `seriousInfection_needs` | serious infection ⇒ under 3 months ∧ fever (step 8) |
@@ -61,9 +62,10 @@ tests/mutation_test.sh  # corrupt premises 25 ways; report every layer that noti
 | | `caution_seriousInfection` | serious infection possible ⇒ emergency care obligatory (step 8) |
 | | `caution_highFever` | reading of 40.0 °C or more ⇒ at least urgent care obligatory (step 8) |
 | | `caution_persistentCough` | cough of 21 days or more ⇒ at least see a doctor (step 11) |
-| Proportionality | `permit_selfCare` | cardiac, meningitis, pneumonia, serious infection ruled out, no reading ≥ 40.0 °C possible, and no cough of 21+ days possible ⇒ self-care permitted |
+| | `caution_newConfusion` | new confusion possible ⇒ emergency care obligatory, whatever the cause (step 12) |
+| Proportionality | `permit_selfCare` | cardiac, meningitis, pneumonia, serious infection ruled out, no reading ≥ 40.0 °C possible, no cough of 21+ days possible, and no new confusion possible ⇒ self-care permitted |
 | | `permit_seeDoctor` | same, but a persistent cough is fine ⇒ seeing a doctor permitted (step 11) |
-| | `permit_urgentCare` | cardiac, meningitis, serious infection ruled out ⇒ urgent care permitted |
+| | `permit_urgentCare` | cardiac, meningitis, serious infection ruled out, no new confusion possible ⇒ urgent care permitted |
 | Pathways | `one_pathway` | one care pathway at a time |
 
 Frame laws (in Core): T for knowledge, **4 for knowledge (`compat_trans`)**,
@@ -109,21 +111,24 @@ T and 4 for time, and D for obligation.
 | C33 | a cough of **20 days** obliges a doctor's visit | rejected, correctly: pins the threshold at 21 days | — |
 | C34 | a persistent cough alone obliges urgent care | rejected, correctly | — |
 | C35 | chest pain that is **tender to the touch**, every other red flag absent ⇒ self-care permitted | rejected, correctly: a heart attack can present this way | — |
+| C36 | new confusion **possible** ⇒ emergency care obligatory | proved | `caution_newConfusion` (step 12) |
+| C37 | non-blanching rash, no fever needed ⇒ emergency care obligatory | proved | `redflag_meningitis_rash` (step 12) |
+| C38 | older adult, no fever, cough or breathlessness ⇒ pneumonia ruled out | rejected, correctly: pneumonia can show as confusion alone | — |
 | C20 | C6's checklist **without confirming age** ⇒ self-care permitted | rejected, correctly: infant meningitis can be silent | — |
 | C20b | same, with age ≥ **11 months** confirmed | rejected, correctly: pins the age gate at 12 months | — |
 | C21 | age ≤ **3 months** + fever ⇒ emergency care obligatory | rejected, correctly: pins the infant rule at "under 3 months" | — |
 | — | `caution_under_doubt`: a patient who is actually fine is still referred | proved | C14 in a 2-scenario model |
-| — | C6 and C11 checklist minimality (8 tests) | proved | — |
+| — | C6 and C11 checklist minimality (13 tests: C6 now has 8 questions, C11 has 5) | proved | — |
 
 Every verdict's hypothesis holds in some test model, so none is true only
 because nothing satisfies it. Every test model is checked by `decide`
 against every premise.
 
-## Test results (step 11)
+## Test results (step 12)
 
 - **Layering:** OK.
-- **Axiom audit:** 43 results. None uses `sorry` or classical choice.
-- **Mutation testing:** 37 of 40 caught. Both survivors were marked benign in
+- **Axiom audit:** 46 results. None uses `sorry` or classical choice.
+- **Mutation testing:** 43 of 45 caught. Both survivors were marked benign in
   advance. The harness now reports *every* layer that catches a mutation:
 
 | Mutation | Kind | Caught by |
@@ -149,7 +154,10 @@ against every premise.
 | threshold: persistent cough from 28 days | unsafe | verdicts (C31 at 21 days) |
 | threshold: persistent cough from 14 days | cautious | verdicts, models (C33 at 20 days), checklists |
 | permit: self-care skips persistent-cough check; see-doctor skips meningitis check | unsafe | verdicts, models, checklists |
-| needs: older pneumonia never confusion-only | benign | **survived: the clause is idle (see step 10)** |
+| needs: older pneumonia never confusion-only | unsafe | models (`olderConfusionPneumo`, C38), checklists. **Survived until step 12** |
+| red flag: rash also needs fever; caution: confusion only urgent care | unsafe | verdicts (C37, C36) |
+| needs: meningitis without rash | unsafe | models (`rashOnly`), checklists |
+| permit: self-care / urgent care skips confusion check | unsafe | verdicts, models (`confusionNoCause`), checklists |
 | permit: any check skipped (meningitis, pneumonia, infant infection, high fever) | unsafe | verdicts, models, checklists |
 | permit: self-care also needs viral ruled out | cautious | verdicts, checklists |
 | red flag: viral ignores sore throat; needs: viral without headache | benign | survived |
@@ -338,6 +346,40 @@ flag covers cough plus breathlessness without fever in older adults (C23).
   *lowers probability* without excluding a condition can't be expressed in a
   qualitative logic. That is the calibration problem again.
 
+**Step 12: a rash, confusion as a symptom-level caution, and clinical counterexamples.**
+
+- **A non-blanching rash is a red flag on its own** (C37): early meningococcal
+  disease can show a rash before any fever. Adding it forced
+  `meningitis_needs` wider (a rash counts as a sign), so ruling out
+  meningitis now takes one more absence. The self-care checklist grew to
+  eight questions (C6) and the urgent-care one to five (C11), and minimality
+  shows the rash question is load-bearing in both. **Adding a red flag for a
+  condition forces its "needs" premise to grow too**, or a patient with
+  only the new sign would have no model (and every claim about them would
+  hold vacuously).
+- **Some cautions belong on a symptom, not a condition.** Before this step
+  the theory obliged *nothing* for an acutely confused 30-year-old without
+  fever: confusion only mattered as a sign of meningitis or pneumonia. Its
+  real causes (stroke, sepsis, low blood sugar) are outside the vocabulary.
+  `caution_newConfusion` acts on the symptom directly, and every permit
+  premise now blocks it (the step-8 invariant). The model `confusionNoCause`
+  catches a permit premise that forgets that block. **A vocabulary of
+  conditions will always be incomplete, so the safety of the whole theory
+  can't rest on naming every cause.**
+- **A library of clinical counterexamples.** `Models.lean` now has a
+  section of real, easy-to-miss presentations, written from clinical
+  knowledge and not from the premises: a heart attack with a tender chest
+  wall, meningococcal rash before fever, pneumonia in an 80-year-old showing
+  only as confusion, and confusion with no named cause. Each one rejects
+  every premise that would let its condition be ruled out.
+- **The idle premise from step 10 is now load-bearing.** Removing
+  "pneumonia can be confusion alone from 65" used to survive every test.
+  The `olderConfusionPneumo` counterexample now catches it, and C38 states
+  the knowledge directly: in an older adult, no fever, cough or
+  breathlessness does not rule out pneumonia. The clause was medically true
+  all along. It had no test because nothing *relied* on it. **A
+  counterexample model tests a premise even when no verdict uses it.**
+
 ## Open design questions
 
 1. **How knowledge and time interact.** No frame condition links `compat`
@@ -358,10 +400,11 @@ flag covers cough plus breathlessness without fever in older adults (C23).
 
 ## Candidate next steps
 
-- Build a small library of clinical counterexample models (well-known
-  atypical presentations), so that unsafe premises are rejected by
-  construction.
+- Grow the clinical counterexample library (step 12 started it), for
+  example a diabetic with a silent heart attack, or appendicitis in an
+  older adult.
+- More symptom-level cautions in the style of `caution_newConfusion`, for
+  example sudden severe headache or fainting.
 - Give the knowledge-time interaction a frame condition (perfect recall), so
   claims can reason about symptoms that were confirmed earlier.
-- Add duration, so "see a doctor" gets a premise.
 - Decide the reported-versus-measured fever question and encode it.
