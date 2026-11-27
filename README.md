@@ -7,21 +7,10 @@ facts, both of which are visible and reviewable.
 
 ## Why
 
-People increasingly ask AI for medical advice, and LLMs answer fluently
-whether or not they're right: a wrong answer sounds as confident as a right
-one. mediLEAN separates what is proven from what is assumed, so nothing false
-can pass as established.
-
-Expert systems like MYCIN reasoned explicitly but stalled on the knowledge
-acquisition bottleneck: hand-translating expertise into rules was slow and
-brittle. LLMs make that translation cheap. mediLEAN pairs the two: the LLM
-drafts premises and searches for proofs, and Lean's kernel accepts only valid
-ones. Modal logic gives advice its shape (what's known, what happens over
-time, what one should do), and caution is a rule: if a dangerous condition
-can't be ruled out, emergency care is obligatory.
-
-The open problems are reviewing the premises, which still needs experts;
-calibration, since the logic is yes/no and over-refers; and adoption.
+More and more people ask AI for medical advice, and an LLM sounds just as
+sure of itself when it's wrong as when it's right. People trust that
+fluency. mediLEAN is an attempt at advice whose confidence is earned: you
+can see exactly what it assumes, and check that everything else follows.
 
 ## Status
 
