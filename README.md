@@ -14,7 +14,7 @@ reviewed them. This is not medical advice.
 |--------|------|
 | `MediLean/Core/` | Fixed logic: modal operators (knowledge, time, obligation), frames, the care scale |
 | `MediLean/Theory/` | The premises. **`Premises.lean` holds every assumption**; `Rules.lean` holds consequences proved from them |
-| `MediLean/Claims/` | Tests: certified verdicts, rejected claims, finite test models, checklist minimality |
+| `MediLean/Claims/` | Tests: certified verdicts, test models and rejected claims, witnesses, checklist minimality |
 
 `DISCOVERY_LOG.md` records every claim posed, what it required, and what we
 learned.

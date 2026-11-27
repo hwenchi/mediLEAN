@@ -12,9 +12,10 @@ inductive Symptom
 
 inductive Condition
   | cardiac | meningitis | pneumonia | viral
+  | seriousInfection   -- serious bacterial infection (relevant in young infants)
   deriving DecidableEq, Repr
 
-def Condition.all : List Condition := [.cardiac, .meningitis, .pneumonia, .viral]
+def Condition.all : List Condition := [.cardiac, .meningitis, .pneumonia, .viral, .seriousInfection]
 
 theorem Condition.mem_all (c : Condition) : c ∈ Condition.all := by cases c <;> decide
 

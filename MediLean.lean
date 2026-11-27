@@ -8,5 +8,6 @@ import MediLean.Theory.Premises
 import MediLean.Theory.Rules
 -- Claims: tests of the theory
 import MediLean.Claims.Verdicts
-import MediLean.Claims.Rejected
+import MediLean.Claims.Models
+import MediLean.Claims.Witnesses
 import MediLean.Claims.Checklists

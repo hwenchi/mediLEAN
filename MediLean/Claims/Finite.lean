@@ -53,29 +53,39 @@ instance {W : Type} [Enum W] {R : W → W → Prop} [∀ a b, Decidable (R a b)]
 /-- A finite test model. Every frame law and every premise is discharged by
     `decide`, so a model that breaks any premise fails to build. -/
 macro "finite_model%" W:term:max compat:term:max later:term:max ideal:term:max
-    has:term:max cond:term:max seeks:term:max : term =>
+    has:term:max cond:term:max seeks:term:max age:term:max temp:term:max : term =>
   `(({ W := $W, compat := $compat, later := $later, ideal := $ideal,
        has := $has, cond := $cond, seeks := $seeks,
+       ageMonths := $age, tempTenths := $temp,
+       fever_of_temp := by decide,
        compat_refl := by decide, compat_trans := by decide,
        later_refl := by decide, later_trans := by decide,
        ideal_serial := by decide,
        redflag_cardiac := by decide, redflag_meningitis := by decide,
        redflag_pneumonia := by decide, redflag_viral := by decide,
+       redflag_meningitis_headache := by decide,
+       redflag_infant_fever := by decide, seriousInfection_needs := by decide,
        cardiac_needs := by decide, meningitis_needs := by decide,
        pneumonia_needs := by decide, viral_needs := by decide,
        caution_cardiac := by decide, caution_meningitis := by decide,
-       caution_pneumonia := by decide,
+       caution_pneumonia := by decide, caution_seriousInfection := by decide,
+       caution_highFever := by decide,
        permit_selfCare := by decide, permit_urgentCare := by decide,
        one_pathway := by decide } : TriageModel))
 
-/-- One fully known situation: the symptoms `S`, the conditions `C`, and the
+/-- One fully known situation: patient age (months), temperature reading
+    (tenths of °C, 0 = none), the symptoms `S`, the conditions `C`, and the
     care level `need` that the guideline-compliant options must meet.
     Worlds are the four care pathways the patient could take. -/
-macro "situation%" S:term:max C:term:max need:term:max : term =>
+macro "situationAt%" age:term:max temp:term:max S:term:max C:term:max need:term:max : term =>
   `(finite_model% (Unit × Urgency)
       (fun _ _ => True) (fun _ _ => True)
       (fun _ b => $need ≤ Urgency.rank b.2)
       (fun s _ => s ∈ ($S : List Symptom)) (fun c _ => c ∈ ($C : List Condition))
-      (fun u w => w.2 = u))
+      (fun u w => w.2 = u) (fun _ => $age) (fun _ => $temp))
+
+/-- A situation for an adult (30 years) with no temperature reading. -/
+macro "situation%" S:term:max C:term:max need:term:max : term =>
+  `(situationAt% 360 0 $S $C $need)
 
 end MediLean

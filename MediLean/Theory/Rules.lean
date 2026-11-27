@@ -42,10 +42,39 @@ theorem ruledOut_cardiac (hc : M.RuledOut (M.has .chestPain) w)
     (ha : M.RuledOut (M.has .armPain) w) : M.RuledOut (M.cond .cardiac) w :=
   by intro v hv hx; have := M.cardiac_needs v hx; have := hc v hv; have := ha v hv; simp_all
 
-/-- Ruling out meningitis: no stiff neck and no headache. -/
-theorem ruledOut_meningitis (hs : M.RuledOut (M.has .stiffNeck) w)
+/-- Ruling out meningitis: the patient is known to be at least one year old,
+    and has no stiff neck and no headache. (For infants there is no way to
+    rule it out from symptoms.) -/
+theorem ruledOut_meningitis (hage : M.Known (fun v => 12 ≤ M.ageMonths v) w)
+    (hs : M.RuledOut (M.has .stiffNeck) w)
     (hh : M.RuledOut (M.has .headache) w) : M.RuledOut (M.cond .meningitis) w :=
-  by intro v hv hx; have := M.meningitis_needs v hx; have := hs v hv; have := hh v hv; simp_all
+  by intro v hv hx; have := M.meningitis_needs v; have := hage v hv; have := hs v hv; have := hh v hv; grind
+
+/-- Ruling out a serious infection in an infant: the patient is known to be
+    at least 3 months old. -/
+theorem ruledOut_seriousInfection_age (hage : M.Known (fun v => 3 ≤ M.ageMonths v) w) :
+    M.RuledOut (M.cond .seriousInfection) w := by
+  intro v hv hx
+  have h1 := (M.seriousInfection_needs v hx).1
+  have h2 : 3 ≤ M.ageMonths v := hage v hv
+  omega
+
+/-- Ruling out a serious infection in an infant: no fever. -/
+theorem ruledOut_seriousInfection_noFever (hf : M.RuledOut (M.has .fever) w) :
+    M.RuledOut (M.cond .seriousInfection) w :=
+  fun v hv hx => hf v hv (M.seriousInfection_needs v hx).2
+
+/-- No fever rules out any reading of 38.0 °C or more, so in particular
+    any reading of 40.0 °C or more. -/
+theorem noHighFever_of_noFever (hf : M.RuledOut (M.has .fever) w) :
+    M.Known (fun v => M.tempTenths v < 400) w := fun v hv =>
+  Nat.lt_of_not_le fun h => hf v hv (M.fever_of_temp v (Nat.le_trans (by decide) h))
+
+/-- Knowing the patient is at least `a` months old means knowing they are at
+    least `b` months old, for any `b ≤ a`. -/
+theorem known_age_mono {a b : Nat} (hab : b ≤ a) (h : M.Known (fun v => a ≤ M.ageMonths v) w) :
+    M.Known (fun v => b ≤ M.ageMonths v) w :=
+  fun v hv => Nat.le_trans hab (h v hv)
 
 /-- Ruling out pneumonia, first way: no fever. -/
 theorem ruledOut_pneumonia_noFever (hf : M.RuledOut (M.has .fever) w) :

@@ -1,15 +1,19 @@
 /-
-  CLAIMS: test models, witnesses, and rejected claims.
+  CLAIMS: test models and rejected claims.
 
-  * Consistency: each test model satisfies every premise, so the theory
-    has models and "certified" isn't vacuous.
-  * Witnesses: each verdict's hypothesis holds in some model, so no verdict
-    is true merely because nothing satisfies it.
-  * Rejected claims: claims that must NOT follow, each refuted by a model
-    of the premises where it fails.
+  * Consistency: each test model satisfies every premise (checked by
+    `decide` when it is built), so the theory has models and "certified"
+    isn't vacuous.
+  * Rejected claims: claims that must NOT follow, each refuted by a model of
+    the premises where it fails.
+
+  This file deliberately does not import the verdicts, so it builds (and
+  checks every premise) even when a verdict breaks.
 -/
-import MediLean.Claims.Verdicts
+import MediLean.Theory.Rules
 import MediLean.Claims.Finite
+
+set_option synthInstance.maxSize 1024
 
 namespace MediLean
 open AdvisoryFrame TriageModel
@@ -39,7 +43,7 @@ abbrev onset := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ (if a.1 then 3 else 0) ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else []))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
 
 /-! ### Genuine doubt: scenarios the user can't tell apart -/
 
@@ -51,7 +55,7 @@ abbrev armUnsure := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.chestPain, .armPain] else [.chestPain]))
   (fun c w => c ∈ (if w.1 then [Condition.cardiac] else []))
-  (fun u w => w.2 = u)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
 
 /-- Fever in one scenario, a (harmless) stiff neck in the other; never both. -/
 abbrev separateDoubts := finite_model% (Bool × Urgency)
@@ -59,7 +63,7 @@ abbrev separateDoubts := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 0 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.stiffNeck] else [.fever]))
   (fun c w => c ∈ (if w.1 then [] else [Condition.viral]))
-  (fun u w => w.2 = u)
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
 
 /-- Fever with a stiff neck in one scenario, nothing in the other. -/
 abbrev jointDoubt := finite_model% (Bool × Urgency)
@@ -67,32 +71,7 @@ abbrev jointDoubt := finite_model% (Bool × Urgency)
   (fun a b => a.1 = b.1 ∧ 3 ≤ Urgency.rank b.2)
   (fun s w => s ∈ (if w.1 then [Symptom.fever, .stiffNeck] else []))
   (fun c w => c ∈ (if w.1 then [Condition.meningitis, .viral] else []))
-  (fun u w => w.2 = u)
-
-/-! ### Witnesses: every verdict's hypothesis is satisfiable -/
-
-example : c1_chest_arm.hyp chestArm now := by unfold c1_chest_arm; decide
-example : c3_fever_stiffneck.hyp feverStiff now := by unfold c3_fever_stiffneck; decide
-example : c6_selfcare.hyp coldCough now := by unfold c6_selfcare; decide
-example : c6b_selfcare_fever.hyp feverOnly now := by unfold c6b_selfcare_fever; decide
-example : c10_advice.hyp onset (false, .selfCare) := by
-  unfold c10_advice c6_selfcare c9_safety_net; decide
-example : c11_pneumonia.hyp pneumo now := by unfold c11_pneumonia; decide
-example : c16_joint_doubt.hyp jointDoubt (false, .selfCare) := by unfold c16_joint_doubt; decide
-
-/-- C14's hypothesis holds in the scenario where the patient is actually
-    fine (no arm pain, no cardiac event)... -/
-theorem c14_witness : c14_uncertain_arm.hyp armUnsure (false, .selfCare) := by
-  unfold c14_uncertain_arm; decide
-
-/-- ...so emergency care is obligatory there anyway. The caution rule acting
-    under genuine doubt, with its cost explicit: a fine patient is referred
-    because the dangerous scenario can't be told apart. -/
-theorem caution_under_doubt :
-    armUnsure.Obligatory (armUnsure.seeks .emergency) (false, .selfCare) ∧
-    ¬ armUnsure.has .armPain (false, .selfCare) ∧
-    ¬ armUnsure.cond .cardiac (false, .selfCare) :=
-  ⟨c14_uncertain_arm.proof _ _ c14_witness, by decide, by decide⟩
+  (fun u w => w.2 = u) (fun _ => 360) (fun _ => 0)
 
 /-! ### Rejected claims -/
 
@@ -123,10 +102,11 @@ theorem c12_pneumonia_not_emergency :
     is no longer certified: meningitis hasn't been ruled out. -/
 theorem c13_unchecked_neck :
     ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 12 ≤ M.ageMonths v) w →
         M.KnownAll [.fever, .cough, .breathless] w →
         M.RuledAllOut [.chestPain, .armPain, .headache] w →
         M.Permitted (M.seeks .urgentCare) w :=
-  fun h => absurd (h pneumoMening now (by decide) (by decide)) (by decide)
+  fun h => absurd (h pneumoMening now (by decide) (by decide) (by decide)) (by decide)
 
 /-- C15 (rejected). *Separate* doubts are not enough: fever might be present
     and a stiff neck might be present, but never together. Meningitis is
@@ -136,5 +116,44 @@ theorem c15_separate_doubts :
     ¬ ∀ (M : TriageModel) w, M.Possible (M.has .fever) w →
         M.Possible (M.has .stiffNeck) w → M.Obligatory (M.seeks .emergency) w :=
   fun h => absurd (h separateDoubts (false, .selfCare) (by decide) (by decide)) (by decide)
+
+/-! ### Patient context and thresholds (step 8) -/
+
+abbrev infantFever     := situationAt% 1 0 [.fever] [.seriousInfection, .viral] 3
+abbrev threeMonthFever := situationAt% 3 0 [.fever] [.viral] 0
+abbrev infantMening    := situationAt% 1 0 [] [.meningitis] 3
+abbrev borderFever     := situationAt% 360 380 [.fever, .stiffNeck] [.meningitis, .viral] 3
+abbrev highFever       := situationAt% 360 400 [.fever] [.viral] 2
+abbrev neckHeadache    := situation% [.stiffNeck, .headache] [.meningitis] 3
+
+
+/-- C20 (rejected). C6's checklist *without* confirming the patient's age
+    does not certify self-care: an infant can have meningitis with no stiff
+    neck, headache or fever. Age is a question the interface must ask. -/
+theorem c20_selfcare_needs_age :
+    ¬ ∀ (M : TriageModel) w,
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h infantMening now (by decide)) (by decide)
+
+abbrev elevenMonthMening := situationAt% 11 0 [] [.meningitis] 3
+
+/-- C20b (rejected, boundary). Even confirming the child is at least 11
+    months old isn't enough: under one year, meningitis can still present
+    without a stiff neck, headache or fever. Pins the age gate at 12 months. -/
+theorem c20b_age_gate_boundary :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => 11 ≤ M.ageMonths v) w →
+        M.RuledAllOut [.chestPain, .armPain, .stiffNeck, .headache, .fever] w →
+        M.Permitted (M.seeks .selfCare) w :=
+  fun h => absurd (h elevenMonthMening now (by decide) (by decide)) (by decide)
+
+/-- C21 (rejected, boundary). At exactly 3 months, fever alone no longer
+    obliges emergency care: the infant-fever rule is "under 3 months". -/
+theorem c21_three_months_boundary :
+    ¬ ∀ (M : TriageModel) w,
+        M.Known (fun v => M.ageMonths v ≤ 3) w → M.Known (M.has .fever) w →
+        M.Obligatory (M.seeks .emergency) w :=
+  fun h => absurd (h threeMonthFever now (by decide) (by decide)) (by decide)
 
 end MediLean
