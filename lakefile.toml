@@ -1,0 +1,5 @@
+name = "medilean"
+defaultTargets = ["MediLean"]
+
+[[lean_lib]]
+name = "MediLean"

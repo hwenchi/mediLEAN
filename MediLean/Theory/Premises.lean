@@ -1,0 +1,79 @@
+/-
+  ═══════════════════════════════════════════════════════════════════════
+  THE THEORY: every assumption mediLEAN makes is in this file.
+  ═══════════════════════════════════════════════════════════════════════
+
+  Each premise is a named field of `TriageModel`. A model is any situation
+  satisfying all of them. A claim is certified when it holds in every model.
+
+  Nothing outside this file adds assumptions:
+    Core/          fixed logic (modal operators, frames, the care scale)
+    Theory/Rules   consequences proved from these premises
+    Claims/        tests: verdicts, rejected claims, test models
+
+  How to read the modal operators (w is "the situation as it is"):
+    Diamond compat P w   P can't be ruled out, given what the user confirmed
+    BoxNot  compat P w   P is ruled out
+    Box     ideal  P w   P is obligatory (true in every guideline-compliant option)
+    Diamond ideal  P w   P is permitted
+
+  SOURCE: the LLM's own medical knowledge. UNREVIEWED; for exploration only.
+  Premises marked CRUDE are known simplifications.
+-/
+import MediLean.Theory.Vocabulary
+
+namespace MediLean
+
+structure TriageModel extends AdvisoryFrame where
+  has   : Symptom → W → Prop      -- the patient has this symptom
+  cond  : Condition → W → Prop    -- the patient has this condition
+  seeks : Urgency → W → Prop      -- the care pathway taken
+
+  -- ── Red flags: symptom patterns that make a condition possible ──────────
+
+  /-- Chest pain with arm pain: a cardiac event can't be ruled out. -/
+  redflag_cardiac : ∀ w, has .chestPain w → has .armPain w → Diamond compat (cond .cardiac) w
+  /-- Fever with a stiff neck: meningitis can't be ruled out. -/
+  redflag_meningitis : ∀ w, has .fever w → has .stiffNeck w → Diamond compat (cond .meningitis) w
+  /-- Fever, cough and breathlessness together: pneumonia can't be ruled out. -/
+  redflag_pneumonia : ∀ w, has .fever w → has .cough w → has .breathless w → Diamond compat (cond .pneumonia) w
+  /-- Fever, cough or sore throat: a viral infection can't be ruled out. -/
+  redflag_viral : ∀ w, has .fever w ∨ has .cough w ∨ has .soreThroat w → Diamond compat (cond .viral) w
+
+  -- ── Necessary symptoms: what a condition can't occur without ────────────
+  -- These are how danger gets ruled out, so they carry the most risk.
+
+  /-- A cardiac event comes with chest pain or arm pain.
+      CRUDE: atypical presentations (jaw pain, breathlessness) exist. -/
+  cardiac_needs : ∀ w, cond .cardiac w → has .chestPain w ∨ has .armPain w
+  /-- Meningitis comes with a stiff neck or a headache.
+      CRUDE: infants and the elderly can present without either. -/
+  meningitis_needs : ∀ w, cond .meningitis w → has .stiffNeck w ∨ has .headache w
+  /-- Pneumonia comes with fever, and with cough or breathlessness.
+      CRUDE: afebrile pneumonia occurs in the elderly. -/
+  pneumonia_needs : ∀ w, cond .pneumonia w → has .fever w ∧ (has .cough w ∨ has .breathless w)
+  /-- A viral infection comes with fever, cough, sore throat or headache. -/
+  viral_needs : ∀ w, cond .viral w → has .fever w ∨ has .cough w ∨ has .soreThroat w ∨ has .headache w
+
+  -- ── Caution: a condition that can't be ruled out obliges care ───────────
+
+  /-- If a cardiac event can't be ruled out, emergency care is obligatory. -/
+  caution_cardiac : ∀ w, Diamond compat (cond .cardiac) w → Box ideal (SeeksAtLeast seeks .emergency) w
+  /-- If meningitis can't be ruled out, emergency care is obligatory. -/
+  caution_meningitis : ∀ w, Diamond compat (cond .meningitis) w → Box ideal (SeeksAtLeast seeks .emergency) w
+  /-- If pneumonia can't be ruled out, at least urgent care is obligatory. -/
+  caution_pneumonia : ∀ w, Diamond compat (cond .pneumonia) w → Box ideal (SeeksAtLeast seeks .urgentCare) w
+
+  -- ── Proportionality: lower care is fine once danger is ruled out ────────
+
+  /-- With cardiac, meningitis and pneumonia ruled out, self-care is permitted. -/
+  permit_selfCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → BoxNot compat (cond .pneumonia) w → Diamond ideal (seeks .selfCare) w
+  /-- With cardiac and meningitis ruled out, urgent care is permitted. -/
+  permit_urgentCare : ∀ w, BoxNot compat (cond .cardiac) w → BoxNot compat (cond .meningitis) w → Diamond ideal (seeks .urgentCare) w
+
+  -- ── Pathways ────────────────────────────────────────────────────────────
+
+  /-- A person follows one care pathway at a time. -/
+  one_pathway : ∀ w u u', seeks u w → seeks u' w → u = u'
+
+end MediLean
